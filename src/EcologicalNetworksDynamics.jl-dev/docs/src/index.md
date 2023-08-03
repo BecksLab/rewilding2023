@@ -1,0 +1,70 @@
+```@meta
+CurrentModule = EcologicalNetworksDynamics
+```
+
+# EcologicalNetworksDynamics
+
+EcologicalNetworksDynamics is a library designed to simulate species biomass dynamics
+in ecological networks.
+These networks can either trophic interactions only (i.e. food webs),
+or trophic interactions plus various non-trophic interactions (i.e. multiplex networks).
+We provide functions to generate food web structure from well-known models
+(e.g. niche model).
+We designed EcologicalNetworksDynamics so that
+it is easy to use for non-specialists
+while remaining flexible for more adventurous and experienced users
+who would like to tweak the model.
+
+## Before you start
+
+Before anything else, to use EcologicalNetworksDynamics you have to install Julia.
+For that go to the [official download page](https://julialang.org/downloads/).
+Once you have successfully installed Julia,
+you can install the library by running from a Julia REPL:
+
+```julia
+using Pkg
+Pkg.add("EcologicalNetworksDynamics")
+```
+
+To check that the package installation went well,
+you can create a simple food web with:
+
+```julia
+using EcologicalNetworkDynamics
+FoodWeb([1 => 2])
+```
+
+## Learning EcologicalNetworkDynamics
+
+The [Quick start](@ref) page shows how to simulate biomass dynamics in a simple food web.
+The rest of the guide provides a step by step introduction to the package features,
+from the generation of the network structure to the simulation of the biomass dynamics.
+At each step, we detail how the model can be customized at your will.
+Lastly, the Tutorials section contains
+realistic use-cases of EcologicalNetworksDynamics.
+
+## Getting help
+
+During your journey learning EcologicalNetworksDynamics you might encounter issues.
+If so the best is to open an issue on the
+[GitHub page of EcologicalNetworksDynamics](https://github.com/BecksLab/EcologicalNetworksDynamics.jl/issues).
+To ensure that we can help you efficiently,
+please provide a short description of your problem
+and a minimal example to reproduce the error you encountered.
+
+## How can I contribute?
+
+The easiest way to contribute is to
+[open an issue](https://github.com/BecksLab/EcologicalNetworksDynamics.jl/issues)
+if you spot a bug, a typo or can't manage to do something.
+Another way is to fork the repository,
+start working from the `dev` branch,
+and when ready, submit a pull request.
+The contribution guidelines are detailed
+[here](https://github.com/BecksLab/EcologicalNetworksDynamics.jl/blob/dev/CONTRIBUTING.md).
+
+## Citing
+
+Please mention EcologicalNetworksDynamics
+if you use it in research, teaching, or other activities.
