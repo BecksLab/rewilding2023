@@ -1,13 +1,18 @@
 #' Simulate until steady state and then simulate for a `last` number of timestep with a step
 # of 1.
-function sim_steady_state_last(p, B0; last = 100, burn_in = 100, extinction_threshold = 1e-6, verbose = true, kwargs...)
-    burn_in = simulate(p, B0, callback = CallbackSet(
+function sim_steady_state_last(p, B0;
+        last = 100,
+        burn_in = 100,
+        extinction_threshold = 1e-6,
+        verbose = true,
+        kwargs...)
+    steady_sim = simulate(p, B0, callback = CallbackSet(
                                                      TerminateSteadyState(1e-6, 1e-4),
                                                      ExtinctionCallback(extinction_threshold, p, verbose)
                                                     ),
                        kwargs...
                       )
-    last_biomass = burn_in[:, end]
+    last_biomass = steady_sim[:, end]
 
     simulate(p, last_biomass,
              tmax = burn_in + last,
@@ -52,4 +57,32 @@ function sim_output(m; last = 100)
      int_mean = mean(int[int .> 0]),
      int_per_cap_mean = mean(int_per_capita[int_per_capita .> 0]),
     )
+end
+
+function scenario_output(m, B0, fw;
+        last = 100,
+        scenario = "pred_present",
+        i_extirpated = missing,
+        tlvl_extirpated = missing,
+        i_introduced = missing,
+        tlvl_introduced = missing
+    )
+
+    troph_class_init = trophic_classes(fw)
+    merge(
+          (scenario = scenario, ),
+          sim_output(m, last = last),
+          (
+           richness_init = richness(B0),
+           bm_init = B0,
+           bm_init_pred = sum(B0[troph_class_init.top_predators]),
+           bm_init_cons = sum(B0[troph_class_init.intermediate_consumers]),
+           bm_init_prod = sum(B0[troph_class_init.producers]),
+           tlvl_extirpated = tlvl_extirpated,
+           i_extirpated = i_extirpated,
+           i_introduced = i_introduced,
+           tlvl_introduced = tlvl_introduced,
+           A_init = fw.A
+          )
+   )
 end
