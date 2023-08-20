@@ -7,17 +7,17 @@ using Distributed, Serialization
 ncpu = length(Sys.cpu_info())
 
 #Flag enables all the workers to start on the project of the current dir
-dir = "~/rewilding2023/"
+dir = expanduser("~/rewilding2023/")
 flag = "--project=" * dir
 #flag = "--project=."
 println("Workers run with flag: $(flag)")
-addprocs(ncpu - 1, exeflags=flag)
+addprocs(15 - 1, exeflags=flag)
 #addprocs(5, exeflags=flag)
 println("Using $(ncpu -2) cores")
 
 @everywhere import Pkg
 @everywhere using StatsBase, DataFrames, Arrow, EcologicalNetworksDynamics
-@everywhere include("src/foodweb_building.jl")
+@everywhere include("../src/foodweb_building.jl")
 
 import Random.seed!
 
@@ -50,7 +50,7 @@ df_fw = DataFrame(foodweb)
 # Create a foodweb_id
 df_fw[!, :fw_id] = 1:nrow(df_fw)
 
-Arrow.write(dir * "data/fw_C_S.arrow", df_fw)
+Arrow.write(joinpath(dir, "data/fw_C_S.arrow"), df_fw)
 
 
 ############################################################################################
@@ -79,7 +79,7 @@ param = map(p -> (;Dict(k => v for (k, v) in zip(name, p))...),
 dfZ = DataFrame(param)
 dfZ.fw = [selected_fw.fw[i] for i in dfZ.rep]
 dfZ.fw_id = 1:nrow(dfZ)
-Arrow.write(dir * "data/fw_Z.arrow", dfZ)
+Arrow.write(joinpath(dir, "data/fw_Z.arrow"), dfZ)
 
 ####################
 #  Propagule size  #
@@ -97,7 +97,7 @@ param = map(p -> (;Dict(k => v for (k, v) in zip(name, p))...),
 dfB = DataFrame(param)
 dfB.fw = [selected_fw.fw[i] for i in dfB.rep]
 dfB.fw_id = 1:nrow(dfB)
-Arrow.write(dir * "data/fw_B.arrow", dfB)
+Arrow.write(joinpath(dir, "data/fw_B.arrow"), dfB)
 
 ################
 #  Generality  #
@@ -114,4 +114,4 @@ param = map(p -> (;Dict(k => v for (k, v) in zip(name, p))...),
 dfG = DataFrame(param)
 dfG.fw = [selected_fw.fw[i] for i in dfG.rep]
 dfG.fw_id = 1:nrow(dfG)
-Arrow.write(dir * "data/fw_G.arrow", dfG)
+Arrow.write(joinpath(dir, "data/fw_G.arrow"), dfG)

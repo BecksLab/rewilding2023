@@ -10,7 +10,7 @@
 
 # Replace by the path to the folder where your script lives if necessary
 DIR_ENV=/users/${USER}/rewilding2023
-DIR_SCRIPT=scripts
+DIR_SCRIPT=script
 
 # Load modules
 #module load apps/julia/1.8.5/binary
@@ -18,5 +18,6 @@ DIR_SCRIPT=scripts
 # Put 1.8.5
 JULIA="/users/bi1ahd/.juliaup/bin/julialauncher +release"
 
-cd ${DIR_ENV} && ${JULIA} --project=${DIR_ENV} ${DIR_ENV}/${DIR_SCRIPT}/00_generate_foodweb.jl
-cd ${DIR_ENV} && ${JULIA} --project=${DIR_ENV} ${DIR_ENV}/${DIR_SCRIPT}/01_predator_present.jl
+#cd ${DIR_ENV} && ${JULIA} --project=${DIR_ENV} ${DIR_ENV}/${DIR_SCRIPT}/00_generate_foodweb.jl
+cd ${DIR_ENV} && ${JULIA} --project=${DIR_ENV} ${DIR_ENV}/${DIR_SCRIPT}/01_connectance_richness.jl
+cd ${DIR_ENV} && ${JULIA} --project=${DIR_ENV} ${DIR_ENV}/${DIR_SCRIPT}/02_Z_predator.jl

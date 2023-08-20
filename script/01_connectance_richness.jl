@@ -1,4 +1,3 @@
-
 println("Rundir is $(pwd())")
 
 import Pkg
@@ -8,26 +7,26 @@ using Distributed, Serialization
 ncpu = length(Sys.cpu_info())
 
 #Flag enables all the workers to start on the project of the current dir
-dir = "~/rewilding2023/"
 #dir = pwd() * "/"
+dir = expanduser("~/rewilding2023/")
 flag = "--project=" * dir
 #flag = "--project=."
 println("Workers run with flag: $(flag)")
-addprocs(ncpu - 1, exeflags=flag)
+addprocs(15 - 1, exeflags=flag)
 #addprocs(5, exeflags=flag)
 println("Using $(ncpu -2) cores")
 
 @everywhere import Pkg
 @everywhere using StatsBase, DataFrames, Arrow, EcologicalNetworksDynamics
-@everywhere include(dir * "src/foodweb_building.jl")
+@everywhere include("../src/foodweb_building.jl")
 
 @everywhere using StatsBase, DataFrames, Arrow, EcologicalNetworksDynamics
 @everywhere using DifferentialEquations, SparseArrays
 @everywhere using EcologicalNetworksDynamics
 @everywhere using Random, Plots, Distributions, DataFrames
-@everywhere include(dir * "src/misc.jl")
-@everywhere include(dir * "src/simulation_methods.jl")
-@everywhere include(dir * "src/foodweb_measure.jl")
+@everywhere include("../src/misc.jl")
+@everywhere include("../src/simulation_methods.jl")
+@everywhere include("../src/foodweb_measure.jl")
 
 import Random.seed!
 
@@ -40,7 +39,7 @@ seed!(22)
 # Big df result with a "step" key: "present", "extirpated", "reintroduced"
 
 # Load Foodweb
-fw_comb_df = DataFrame(Arrow.Table(dir * "data/fw_C_S.arrow"))
+fw_comb_df = DataFrame(Arrow.Table(joinpath(dir, "data/fw_C_S.arrow")))
 
 # Reshape arrays and make a vector
 fw_comb_df[!, :fw] = map(x -> reshape_array(x), fw_comb_df[:, :fw])
@@ -65,7 +64,8 @@ sim = pmap(x -> merge(
                        end,
                       ).out
                      ),
-          fw_comb; on_error = ex -> missing
+           fw_comb; on_error = ex -> missing,
+           batch_size = 100
           )
 sim_df = DataFrame(sim)
 
@@ -91,7 +91,8 @@ sim_extinction = pmap(x -> merge(
                                   end,
                                  ).out
                                 ),
-                      sim; on_error = ex -> missing
+                      sim; on_error = ex -> missing,
+                      batch_size = 100
                      )
 
 
@@ -116,10 +117,11 @@ sim_reintroduction = pmap(x -> merge(
                                       end,
                                      ).out
                                     ),
-                          sim_extinction; on_error = ex -> missing
+                          sim_extinction; on_error = ex -> missing,
+                          batch_size = 100
                          )
 
 sim_tot = [sim; sim_extinction; sim_reintroduction]
 sim_tot_df = DataFrame(sim_tot)
 
-Arrow.write(dir * "data/simCS.arrow",sim_tot_df)
+Arrow.write(joinpath(dir, "data/simCS.arrow"),sim_tot_df)

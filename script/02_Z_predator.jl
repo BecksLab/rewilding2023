@@ -1,13 +1,33 @@
-using StatsBase, DataFrames, Arrow, EcologicalNetworksDynamics
-using DifferentialEquations, SparseArrays
 
-using EcologicalNetworksDynamics
-using Random, Plots, Distributions, DataFrames
-using Distributed
-include("src/misc.jl")
-include("src/simulation_methods.jl")
-include("src/foodweb_measure.jl")
+println("Rundir is $(pwd())")
 
+import Pkg
+Pkg.instantiate()
+using Distributed, Serialization
+
+ncpu = length(Sys.cpu_info())
+
+#Flag enables all the workers to start on the project of the current dir
+dir = expanduser("~/rewilding2023/")
+flag = "--project=" * dir
+#flag = "--project=."
+println("Workers run with flag: $(flag)")
+addprocs(15 - 1, exeflags=flag)
+#addprocs(5, exeflags=flag)
+println("Using $(ncpu -2) cores")
+
+@everywhere import Pkg
+@everywhere using StatsBase, DataFrames, Arrow, EcologicalNetworksDynamics
+@everywhere using DifferentialEquations, SparseArrays
+@everywhere using EcologicalNetworksDynamics
+@everywhere using Random, Plots, Distributions, DataFrames
+@everywhere using Distributed
+@everywhere include("../src/misc.jl")
+@everywhere include("../src/simulation_methods.jl")
+@everywhere include("../src/foodweb_measure.jl")
+
+import Random.seed!
+seed!(22)
 ###################
 #  CS experiment  #
 ###################
@@ -16,7 +36,7 @@ include("src/foodweb_measure.jl")
 # Big df result with a "step" key: "present", "extirpated", "reintroduced"
 
 # Load Foodweb
-fw_comb_df = DataFrame(Arrow.Table("data/fw_Z.arrow"))
+fw_comb_df = DataFrame(Arrow.Table(joinpath(dir, "data/fw_Z.arrow")))
 
 # Reshape arrays and make a vector
 fw_comb_df[!, :fw] = map(x -> reshape_array(x), fw_comb_df[:, :fw])
@@ -24,7 +44,7 @@ fw_comb = NamedTuple.(eachrow(fw_comb_df))
 
 
 sim = pmap(x -> merge(
-                      (fw_id = x.fw_id,),
+                      (fw_id = x.fw_id, Z = x.Z,),
                       (
                        out = begin
                            fw = FoodWeb(x.fw, Z = x.Z)
@@ -42,14 +62,15 @@ sim = pmap(x -> merge(
                        end,
                       ).out
                      ),
-           fw_comb
+           fw_comb,
+           batch_size = 100
           )
 
 sim_df = DataFrame(sim)
 
 # Without top predator
 sim_extinction = pmap(x -> merge(
-                                 (fw_id = x.fw_id, ),
+                                 (fw_id = x.fw_id, Z = x.Z,),
                                  (out = begin
                                       fw = FoodWeb(x.A_alive, Z = x.Z)
                                       p = ModelParameters(fw)
@@ -68,13 +89,14 @@ sim_extinction = pmap(x -> merge(
                                   end,
                                  ).out
                                 ),
-                      sim
+                      sim,
+                      batch_size = 100
                      )
 
 
 # Re-introduction:
 sim_reintroduction = pmap(x -> merge(
-                                     (fw_id = x.fw_id, ),
+                                     (fw_id = x.fw_id, Z = x.Z,),
                                      (out = begin
                                           fw = FoodWeb(x.A_init, Z = x.Z)
                                           p = ModelParameters(fw)
@@ -93,10 +115,11 @@ sim_reintroduction = pmap(x -> merge(
                                       end,
                                      ).out
                                     ),
-                          sim_extinction
+                          sim_extinction,
+                          batch_size = 100
                          )
 
 sim_tot = [sim; sim_extinction; sim_reintroduction]
 sim_tot_df = DataFrame(sim_tot)
 
-Arrow.write("data/simZ.arrow",sim_tot_df)
+Arrow.write(joinpath(dir, "data/simZ.arrow"),sim_tot_df)

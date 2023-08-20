@@ -29,6 +29,7 @@ end
 function sim_output(m; last = 100)
     p = get_parameters(m)
     bm = biomass(m, last = last)
+    p = get_parameters(m)
     troph = trophic_structure(m, last = last)
     troph_class = trophic_classes(troph.alive_A)
     pref_alive = p.functional_response.ω[troph.alive_species, troph.alive_species]
