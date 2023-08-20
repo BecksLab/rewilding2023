@@ -67,7 +67,7 @@ sim = pmap(x -> merge(
            fw_comb; on_error = ex -> missing,
            batch_size = 100
           )
-sim_df = DataFrame(sim)
+sim_df = DataFrame(skipmissing(sim))
 
 
 # Without top predator
@@ -122,6 +122,6 @@ sim_reintroduction = pmap(x -> merge(
                          )
 
 sim_tot = [sim; sim_extinction; sim_reintroduction]
-sim_tot_df = DataFrame(sim_tot)
+sim_tot_df = DataFrame(skipmissing(sim))
 
 Arrow.write(joinpath(dir, "data/simCS.arrow"),sim_tot_df)
