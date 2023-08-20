@@ -9,6 +9,7 @@ ncpu = length(Sys.cpu_info())
 
 #Flag enables all the workers to start on the project of the current dir
 dir = "~/rewilding2023/"
+#dir = pwd() * "/"
 flag = "--project=" * dir
 #flag = "--project=."
 println("Workers run with flag: $(flag)")
@@ -45,7 +46,6 @@ fw_comb_df = DataFrame(Arrow.Table(dir * "data/fw_C_S.arrow"))
 fw_comb_df[!, :fw] = map(x -> reshape_array(x), fw_comb_df[:, :fw])
 fw_comb = NamedTuple.(eachrow(fw_comb_df))
 
-
 sim = pmap(x -> merge(
                       (fw_id = x.fw_id,),
                       (
@@ -65,10 +65,10 @@ sim = pmap(x -> merge(
                        end,
                       ).out
                      ),
-           fw_comb
+          fw_comb; on_error = ex -> missing
           )
-
 sim_df = DataFrame(sim)
+
 
 # Without top predator
 sim_extinction = pmap(x -> merge(
@@ -91,7 +91,7 @@ sim_extinction = pmap(x -> merge(
                                   end,
                                  ).out
                                 ),
-                      sim
+                      sim; on_error = ex -> missing
                      )
 
 
@@ -116,7 +116,7 @@ sim_reintroduction = pmap(x -> merge(
                                       end,
                                      ).out
                                     ),
-                          sim_extinction
+                          sim_extinction; on_error = ex -> missing
                          )
 
 sim_tot = [sim; sim_extinction; sim_reintroduction]

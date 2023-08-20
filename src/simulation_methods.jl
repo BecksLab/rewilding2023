@@ -13,10 +13,11 @@ function sim_steady_state_last(p, B0;
                        kwargs...
                       )
     last_biomass = steady_sim[:, end]
+    run_time = burn_in + last
 
     simulate(p, last_biomass,
-             tmax = burn_in + last,
-             saveat = 0:1:last,
+             tmax = run_time,
+             saveat = 0:1:run_time,
              callback = CallbackSet(
                                     ExtinctionCallback(extinction_threshold, p, verbose)
                                    ),
@@ -26,10 +27,11 @@ end
 
 # The output extracted from the simulation
 function sim_output(m; last = 100)
+    p = get_parameters(m)
     bm = biomass(m, last = last)
     troph = trophic_structure(m, last = last)
     troph_class = trophic_classes(troph.alive_A)
-    pref_alive = get_parameters(m).functional_response.ω[troph.alive_species, troph.alive_species]
+    pref_alive = p.functional_response.ω[troph.alive_species, troph.alive_species]
     omni = omnivory(pref_alive, weighted = true)
     cv = coefficient_of_variation(m, last = last)
     int = empirical_interaction_strength(m, p, last = last).mean

@@ -17,7 +17,7 @@ println("Using $(ncpu -2) cores")
 
 @everywhere import Pkg
 @everywhere using StatsBase, DataFrames, Arrow, EcologicalNetworksDynamics
-@everywhere include(dir * "src/foodweb_building.jl")
+@everywhere include("src/foodweb_building.jl")
 
 import Random.seed!
 
@@ -30,7 +30,6 @@ C = [0.05, 0.1, 0.15, 0.2]
 ########################
 #  Generate Food-webs  #
 ########################
-
 rep = 1:nrep
 name = (:rep, :richness, :connectance)
 param = map(p -> (;Dict(k => v for (k, v) in zip(name, p))...),
