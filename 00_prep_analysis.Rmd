@@ -1,0 +1,56 @@
+
+```{r}
+library(tidyverse)
+library(magrittr)
+library(here)
+library(arrow)
+```
+
+```{r}
+list.files(here("data"))
+```
+
+# Connectance-Richness
+
+```{r}
+param_CS <- open_dataset(here("data", "fw_C_S.arrow"), format = "arrow") %>%
+  collect()
+simCS <- open_dataset(here("data", "simCS.arrow"), format = "arrow") %>%
+  collect()
+unique(simCS$scenario)
+```
+
+# Predator-Prey Size Ratio
+
+```{r}
+simZ <- open_dataset(here("data", "simZ.arrow"), format = "arrow") %>%
+  collect()
+unique(simZ$scenario)
+```
+
+# Propagule size
+
+```{r}
+simB <- open_dataset(here("data", "simB.arrow"), format = "arrow") %>%
+  collect()
+unique(simB$scenario)
+simB %>%
+  filter(fw_id == 100) %>%
+  select(scenario, richness, cv_species_mean, cv_com)
+```
+
+# Généralité
+
+
+```{r}
+param_G <- open_dataset(here("data", "fw_G.arrow"), format = "arrow") %>%
+  collect()
+unique(param_G$nb_link)
+
+simG <- open_dataset(here("data", "simG.arrow"), format = "arrow") %>%
+  collect()
+unique(simG$nb_link)
+simG %>%
+  filter(fw_id == 1) %>%
+  select(scenario, richness, cv_species_mean, cv_com)
+```
