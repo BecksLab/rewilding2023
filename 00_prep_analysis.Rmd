@@ -10,6 +10,34 @@ library(arrow)
 list.files(here("data"))
 ```
 
+- Every food-web (`fw_id`) was ran according to three sequential `scenario`:
+  - `pred_present`: The predator is present
+  - `pred_extirpated`: We then extirpated the predator
+  - `pred_reintroduced`: lastly, we reintroduced the predator!
+
+- We collected a bunch of metrics for each simulation:
+  - `fw_id`
+  - `scenario`
+  - `richness`,  `persistence`
+  - `bm_sp`: vector of species biomass
+  - `bm_total`
+  - `bm_pred`, `bm_cons`, `bm_prod`: predator, consumer, and primary producer
+    biomass
+  - `bm_init_pred`, `bm_init_cons`, `bm_init_prod`: Same than above for initial
+    biomass
+  - `species_alive`: vector of species alive among `bm_sp`
+  - `A_alive`, `A_init`: interaction matrix of alive species, and initial
+    interaction matrix
+  - `tlvl`: vector of species trophic level
+  - `tlvl_max`, `tlvl_mean`, `tlvl_w_mean`: max, mean and weighted mean
+  - `omnivory`, `omnivory_mean`: vector of omnivory values, avg
+  - `cv_com`, `cv_species_mean`, `cv_species`: community, average species cv, and
+    vector of species cv
+  - `int_mean`, `int_per_cap_mean`: avg and per capita avg interaction
+  - `richness_init`, `bm_init`: initial richness and biomass
+  - `tlvl_extirpated`, `tlvl_introduced`:
+  - `i_extirpated`, `i_introduced`:
+
 # Connectance-Richness
 
 ```{r}
@@ -17,15 +45,16 @@ param_CS <- open_dataset(here("data", "fw_C_S.arrow"), format = "arrow") %>%
   collect()
 simCS <- open_dataset(here("data", "simCS.arrow"), format = "arrow") %>%
   collect()
-unique(simCS$scenario)
 ```
+
+
+
 
 # Predator-Prey Size Ratio
 
 ```{r}
 simZ <- open_dataset(here("data", "simZ.arrow"), format = "arrow") %>%
   collect()
-unique(simZ$scenario)
 ```
 
 # Propagule size
@@ -33,9 +62,8 @@ unique(simZ$scenario)
 ```{r}
 simB <- open_dataset(here("data", "simB.arrow"), format = "arrow") %>%
   collect()
-unique(simB$scenario)
 simB %>%
-  filter(fw_id == 100) %>%
+  filter(fw_id == 10) %>%
   select(scenario, richness, cv_species_mean, cv_com)
 ```
 
@@ -45,12 +73,10 @@ simB %>%
 ```{r}
 param_G <- open_dataset(here("data", "fw_G.arrow"), format = "arrow") %>%
   collect()
-unique(param_G$nb_link)
-
 simG <- open_dataset(here("data", "simG.arrow"), format = "arrow") %>%
   collect()
 unique(simG$nb_link)
 simG %>%
-  filter(fw_id == 1) %>%
-  select(scenario, richness, cv_species_mean, cv_com)
+  filter(fw_id == 500) %>%
+  select(nb_link, scenario, richness, cv_species_mean, cv_com)
 ```
