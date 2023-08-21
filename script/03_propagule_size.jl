@@ -7,7 +7,7 @@ using Distributed, Serialization
 ncpu = length(Sys.cpu_info())
 
 #Flag enables all the workers to start on the project of the current dir
-#dir = pwd() * "/"
+# dir = pwd() * "/"
 dir = expanduser("~/rewilding2023/")
 flag = "--project=" * dir
 #flag = "--project=."
@@ -48,32 +48,32 @@ fw_comb_df[!, :fw] = map(x -> reshape_array(x), fw_comb_df[:, :fw])
 fw_comb = NamedTuple.(eachrow(fw_comb_df))
 
 sim = @showprogress pmap(x -> merge(
-                      (fw_id = x.fw_id,),
-                      (
-                       out = begin
-                           fw = FoodWeb(x.fw, Z = 100)
-                           p = ModelParameters(fw)
-                           B0 = Base.rand(richness(fw))
-                           m = sim_steady_state_last(p, B0, last = 100)
-                           scenario_output(m, B0, fw;
-                                           last = 100,
-                                           scenario = "pred_present",
-                                           i_extirpated = missing,
-                                           tlvl_extirpated = missing,
-                                           i_introduced = missing,
-                                           tlvl_introduced = missing,
-                                          )
-                       end,
-                      ).out
-                     ),
-           fw_comb; on_error = ex -> missing,
-           batch_size = 100
-          )
+                                    (fw_id = x.fw_id, introduced_size = x.introduced_size, ),
+                                    (
+                                     out = begin
+                                         fw = FoodWeb(x.fw, Z = 100)
+                                         p = ModelParameters(fw)
+                                         B0 = Base.rand(richness(fw))
+                                         m = sim_steady_state_last(p, B0, last = 100)
+                                         scenario_output(m, B0, fw;
+                                                         last = 100,
+                                                         scenario = "pred_present",
+                                                         i_extirpated = missing,
+                                                         tlvl_extirpated = missing,
+                                                         i_introduced = missing,
+                                                         tlvl_introduced = missing,
+                                                        )
+                                     end,
+                                    ).out
+                                   ),
+                         fw_comb; on_error = ex -> missing,
+                         batch_size = 100
+                        )
 sim_df = DataFrame(skipmissing(sim))
 
 # Without top predator
 sim_extinction = @showprogress pmap(x -> merge(
-                                 (fw_id = x.fw_id, ),
+                                 (fw_id = x.fw_id, introduced_size = x.introduced_size, ),
                                  (out = begin
                                       fw = FoodWeb(x.A_alive, Z = 100)
                                       p = ModelParameters(fw)
@@ -92,14 +92,12 @@ sim_extinction = @showprogress pmap(x -> merge(
                                   end,
                                  ).out
                                 ),
-                                    skipmissing(sim); on_error = ex -> missing,
+                                    sim; on_error = ex -> missing,
                                     batch_size = 100
                                    )
-
-
 # Re-introduction:
 sim_reintroduction = @showprogress pmap(x -> merge(
-                                     (fw_id = x.fw_id, ),
+                                     (fw_id = x.fw_id, introduced_size = x.introduced_size, ),
                                      (out = begin
                                           fw = FoodWeb(x.A_init, Z = 100)
                                           p = ModelParameters(fw)
@@ -118,7 +116,7 @@ sim_reintroduction = @showprogress pmap(x -> merge(
                                       end,
                                      ).out
                                     ),
-                          skipmissing(sim_extinction); on_error = ex -> missing,
+                          sim_extinction; on_error = ex -> missing,
                           batch_size = 100
                          )
 

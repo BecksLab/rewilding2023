@@ -49,7 +49,7 @@ fw_comb = NamedTuple.(eachrow(fw_comb_df))
 
 
 sim = @showprogress pmap(x -> merge(
-                      (fw_id = x.fw_id,),
+                      (fw_id = x.fw_id, nb_link = x.nb_link, ),
                       (
                        out = begin
                            fw = FoodWeb(x.fw, Z = 100)
@@ -67,15 +67,15 @@ sim = @showprogress pmap(x -> merge(
                        end,
                       ).out
                      ),
-           fw_comb; on_error = ex -> missing,
-           batch_size = 100
+                         fw_comb[1:10]; on_error = ex -> missing,
+                         batch_size = 100
           )
 
 sim_df = DataFrame(skipmissing(sim))
 
 # Without top predator
 sim_extinction = @showprogress pmap(x -> merge(
-                                 (fw_id = x.fw_id, ),
+                                 (fw_id = x.fw_id, nb_link = x.nb_link, ),
                                  (out = begin
                                       fw = FoodWeb(x.A_alive, Z = 100)
                                       p = ModelParameters(fw)
@@ -94,14 +94,14 @@ sim_extinction = @showprogress pmap(x -> merge(
                                   end,
                                  ).out
                                 ),
-                                    skipmissing(sim); on_error = ex -> missing,
+                                    sim; on_error = ex -> missing,
                                     batch_size = 100
                                    )
 
 
 # Re-introduction:
 sim_reintroduction = @showprogress pmap(x -> merge(
-                                     (fw_id = x.fw_id, ),
+                                     (fw_id = x.fw_id, nb_link = x.nb_link, ),
                                      (out = begin
                                           fw = FoodWeb(x.A_init, Z = 100)
                                           # Remove or add link to the predator
@@ -125,7 +125,7 @@ sim_reintroduction = @showprogress pmap(x -> merge(
                                       end,
                                      ).out
                                     ),
-                          skipmissing(sim_extinction); on_error = ex -> missing,
+                          sim_extinction; on_error = ex -> missing,
                           batch_size = 100
                          )
 
