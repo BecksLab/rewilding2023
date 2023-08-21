@@ -22,6 +22,7 @@ println("Using $(ncpu -2) cores")
 @everywhere using EcologicalNetworksDynamics
 @everywhere using Random, Plots, Distributions, DataFrames
 @everywhere using Distributed
+@everywhere using ProgressMeter
 @everywhere include("../src/misc.jl")
 @everywhere include("../src/simulation_methods.jl")
 @everywhere include("../src/foodweb_measure.jl")
@@ -43,7 +44,7 @@ fw_comb_df[!, :fw] = map(x -> reshape_array(x), fw_comb_df[:, :fw])
 fw_comb = NamedTuple.(eachrow(fw_comb_df))
 
 
-sim = pmap(x -> merge(
+sim = @showprogress pmap(x -> merge(
                       (fw_id = x.fw_id, Z = x.Z,),
                       (
                        out = begin
@@ -62,14 +63,13 @@ sim = pmap(x -> merge(
                        end,
                       ).out
                      ),
-           fw_comb,
+           fw_comb; on_error = ex -> missing,
            batch_size = 100
           )
-
-sim_df = DataFrame(sim)
+sim_df = DataFrame(skipmissing(sim))
 
 # Without top predator
-sim_extinction = pmap(x -> merge(
+sim_extinction = @showprogress pmap(x -> merge(
                                  (fw_id = x.fw_id, Z = x.Z,),
                                  (out = begin
                                       fw = FoodWeb(x.A_alive, Z = x.Z)
@@ -89,13 +89,13 @@ sim_extinction = pmap(x -> merge(
                                   end,
                                  ).out
                                 ),
-                      sim,
-                      batch_size = 100
-                     )
+                                    sim; on_error = ex -> missing,
+                                    batch_size = 100
+                                   )
 
 
 # Re-introduction:
-sim_reintroduction = pmap(x -> merge(
+sim_reintroduction = @showprogress pmap(x -> merge(
                                      (fw_id = x.fw_id, Z = x.Z,),
                                      (out = begin
                                           fw = FoodWeb(x.A_init, Z = x.Z)
@@ -115,11 +115,11 @@ sim_reintroduction = pmap(x -> merge(
                                       end,
                                      ).out
                                     ),
-                          sim_extinction,
+                          sim_extinction; on_error = ex -> missing,
                           batch_size = 100
                          )
 
 sim_tot = [sim; sim_extinction; sim_reintroduction]
-sim_tot_df = DataFrame(sim_tot)
+sim_tot_df = DataFrame(skipmissing(sim))
 
 Arrow.write(joinpath(dir, "data/simZ.arrow"),sim_tot_df)

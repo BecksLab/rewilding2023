@@ -24,6 +24,7 @@ println("Using $(ncpu -2) cores")
 @everywhere using DifferentialEquations, SparseArrays
 @everywhere using EcologicalNetworksDynamics
 @everywhere using Random, Plots, Distributions, DataFrames
+@everywhere using ProgressMeter
 @everywhere include("../src/misc.jl")
 @everywhere include("../src/simulation_methods.jl")
 @everywhere include("../src/foodweb_measure.jl")
@@ -45,7 +46,7 @@ fw_comb_df = DataFrame(Arrow.Table(joinpath(dir, "data/fw_C_S.arrow")))
 fw_comb_df[!, :fw] = map(x -> reshape_array(x), fw_comb_df[:, :fw])
 fw_comb = NamedTuple.(eachrow(fw_comb_df))
 
-sim = pmap(x -> merge(
+sim = @showprogress pmap(x -> merge(
                       (fw_id = x.fw_id,),
                       (
                        out = begin
@@ -71,7 +72,7 @@ sim_df = DataFrame(skipmissing(sim))
 
 
 # Without top predator
-sim_extinction = pmap(x -> merge(
+sim_extinction = @showprogress pmap(x -> merge(
                                  (fw_id = x.fw_id, ),
                                  (out = begin
                                       fw = FoodWeb(x.A_alive, Z = 100)
@@ -87,17 +88,17 @@ sim_extinction = pmap(x -> merge(
                                                       tlvl_extirpated = introduced_tl,
                                                       i_introduced = missing,
                                                       tlvl_introduced = missing,
-                                           )
+                                                     )
                                   end,
                                  ).out
                                 ),
-                      sim; on_error = ex -> missing,
-                      batch_size = 100
-                     )
+                                    sim; on_error = ex -> missing,
+                                    batch_size = 100
+                                   )
 
 
 # Re-introduction:
-sim_reintroduction = pmap(x -> merge(
+sim_reintroduction = @showprogress pmap(x -> merge(
                                      (fw_id = x.fw_id, ),
                                      (out = begin
                                           fw = FoodWeb(x.A_init, Z = 100)
