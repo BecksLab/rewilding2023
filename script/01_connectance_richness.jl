@@ -123,6 +123,6 @@ sim_reintroduction = @showprogress pmap(x -> merge(
                          )
 
 sim_tot = [sim; sim_extinction; sim_reintroduction]
-sim_tot_df = DataFrame(skipmissing(sim))
+sim_tot_df = DataFrame(skipmissing(sim_tot))
 
 Arrow.write(joinpath(dir, "data/simCS.arrow"),sim_tot_df)

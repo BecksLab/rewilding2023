@@ -67,7 +67,7 @@ sim = @showprogress pmap(x -> merge(
                        end,
                       ).out
                      ),
-                         fw_comb[1:10]; on_error = ex -> missing,
+                         fw_comb; on_error = ex -> missing,
                          batch_size = 100
           )
 
