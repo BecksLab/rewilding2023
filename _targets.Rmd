@@ -1,0 +1,247 @@
+---
+title: "Target Markdown"
+output: html_document
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+Target Markdown is a powerful R Markdown interface for reproducible analysis
+pipelines, and the chapter at https://books.ropensci.org/targets/markdown.html
+walks through it in detail. This R Markdown report the example from the chapter.
+Try it out in both interactive and non-interactive modes, either by running the
+code chunks in different ways or setting the `tar_interactive` chunk option.
+
+# Packages
+
+The example requires several R packages, and `targets` must be version 0.5.0.9000 or above.
+
+```{r}
+pkg <- c("tidyverse", "magrittr", "cowplot", "here", "arrow",
+    "easystats", "glmmTMB", "ggcorrplot", "kableExtra")
+```
+
+```{r, eval = FALSE}
+install.packages(pkg)
+```
+
+# Setup
+
+If you are using old versions of `targets` (<= 0.7.0) and/or `knitr` (<= 1.33),
+you will need to load the `targets` package in the R Markdown document in order
+for Target Markdown code chunks to work.
+
+Near the top of the document, you may also wish to remove the `_targets_r`
+directory previously written by non-interactive runs of the report. Otherwise,
+your pipeline may contain superfluous targets.
+
+```{r}
+library(targets)
+tar_unscript()
+```
+
+# Globals
+
+We first define some global options/functions common to all targets.
+
+```{targets example-globals, tar_globals = TRUE}
+options(tidyverse.quiet = TRUE)
+pkg <- c("tidyverse", "magrittr", "cowplot", "here", "arrow",
+    "easystats", "glmmTMB", "ggcorrplot", "kableExtra")
+tar_option_set(packages = pkg)
+dir_fun <- here::here("R")
+
+# Source all the R files
+lapply(
+  X = list.files(
+    path = dir_fun,
+    pattern = "\\.R$",
+    full.names = TRUE,
+    all.files = TRUE,
+    recursive = TRUE
+  ),
+  FUN = source)
+```
+
+# Targets
+
+Our first target borrows the `airquality` dataset built into base R.
+
+```{targets load-data}
+list(
+  # Connectance-Richness
+  tar_target(param_CS,
+    open_dataset(here("data", "fw_C_S.arrow"), format = "arrow") %>%
+      collect()
+    ),
+  tar_target(simCS,
+    open_dataset(here("data", "simCS.arrow"), format = "arrow") %>%
+      collect()
+    ),
+  # Predator-Prey Size Ratio
+  tar_target(simZ,
+    open_dataset(here("data", "simZ.arrow"), format = "arrow") %>% collect()
+    ),
+  # Propagule size
+  tar_target(simB,
+    open_dataset(here("data", "simB.arrow"), format = "arrow") %>%
+      collect()
+    ),
+  tar_target(param_G,
+    open_dataset(here("data", "fw_G.arrow"), format = "arrow") %>%
+      collect()
+  ),
+  tar_target(simG,
+    open_dataset(here("data", "simG.arrow"), format = "arrow") %>%
+      collect()
+  )
+)
+```
+
+## Data explanation
+
+- Every food-web (`fw_id`) was ran according to three sequential `scenario`:
+  - `pred_present`: The predator is present
+  - `pred_extirpated`: We then extirpated the predator
+  - `pred_reintroduced`: lastly, we reintroduced the predator!
+
+- We collected a bunch of metrics for each simulation:
+  - `fw_id`
+  - `scenario`
+  - `richness`,  `persistence`
+  - `bm_sp`: vector of species biomass
+  - `bm_total`
+  - `bm_pred`, `bm_cons`, `bm_prod`: predator, consumer, and primary producer
+    biomass
+  - `bm_init_pred`, `bm_init_cons`, `bm_init_prod`: Same than above for initial
+    biomass
+  - `species_alive`: vector of species alive among `bm_sp`
+  - `A_alive`, `A_init`: interaction matrix of alive species, and initial
+    interaction matrix
+  - `tlvl`: vector of species trophic level
+  - `tlvl_max`, `tlvl_mean`, `tlvl_w_mean`: max, mean and weighted mean
+  - `omnivory`, `omnivory_mean`: vector of omnivory values, avg
+  - `cv_com`, `cv_species_mean`, `cv_species`: community, average species cv, and
+    vector of species cv
+  - `int_mean`, `int_per_cap_mean`: avg and per capita avg interaction
+  - `richness_init`, `bm_init`: initial richness and biomass
+  - `tlvl_extirpated`, `tlvl_introduced`:
+  - `i_extirpated`, `i_introduced`:
+
+
+# Make targets
+
+```{r}
+ncpu <- future::availableCores()
+if (ncpu > 4) {
+  tar_make_future(workers = min(future::availableCores() - 1, 24))
+} else {
+  tar_make()
+}
+```
+
+The `targets` dependency graph helps your readers understand the steps of your pipeline at a high level.
+
+```{r}
+tar_visnetwork()
+```
+
+At this point, you can go back and run `{targets}` chunks in interactive mode without interfering with the code or data of the non-interactive pipeline.
+
+# Output
+
+```{r load-fun}
+sapply(pkg, require, character.only = TRUE)
+
+dir_fun <- here::here("R")
+lapply(
+  X = list.files(
+    path = dir_fun,
+    pattern = "\\.R$",
+    full.names = TRUE,
+    all.files = TRUE,
+    recursive = TRUE
+  ),
+  FUN = source)
+```
+
+```{r}
+tar_load(c(param_CS, simCS))
+
+simCS %<>%
+  select(!where(is.list)) %>%
+  left_join(param_CS %>% select(!where(is.list))) %>%
+  mutate(
+    scenario = factor(scenario,
+      levels = c("pred_present", "pred_extirpated", "pred_reintroduced")),
+    stab_com = log(1 / cv_com)
+  )
+```
+
+## Predator removal
+
+```{r}
+simCS %>%
+  ggplot(aes(y = stab_com, x = S, color = scenario)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  facet_grid(cols = vars(C))
+```
+
+
+```{r}
+exp_effect <- simCS %>%
+  select(-c(richness_init:tlvl_introduced)) %>%
+  pivot_longer(richness:int_per_cap_mean,
+    names_to = "metric", values_to = "values") %>%
+  pivot_wider(names_from = "scenario", values_from = "values") %>%
+  mutate(
+    effect_extirpation = pred_extirpated - pred_present,
+    effect_extirpation_ratio = effect_extirpation / pred_present,
+    effect_reintro = pred_reintroduced - pred_extirpated,
+    effect_reintro_ratio = effect_reintro / pred_extirpated,
+    effect_resilience = pred_reintroduced - pred_present,
+    effect_resilience_ratio = effect_resilience / pred_present
+  )
+```
+
+```{r}
+exp_effect %>%
+  filter(effect_extirpation_ratio < 5) %>%
+  ggplot(aes(x = as.factor(S), y = effect_extirpation_ratio, color = as.factor(C))) +
+  geom_boxplot() +
+  facet_wrap(~metric, scales = "free_y") +
+  theme_bw()
+```
+
+
+```{r}
+exp_effect %>%
+  filter(effect_reintro_ratio < 5) %>%
+  ggplot(aes(x = as.factor(S), y = effect_reintro_ratio, color = as.factor(C))) +
+  geom_boxplot() +
+  facet_wrap(~metric, scales = "free_y") +
+  theme_bw()
+```
+
+```{r}
+exp_effect %>%
+  filter(effect_resilience_ratio < 5) %>%
+  ggplot(aes(x = as.factor(S), y = effect_resilience_ratio, color = as.factor(C))) +
+  geom_boxplot() +
+  facet_wrap(~metric, scales = "free_y") +
+  theme_bw()
+```
+
+```{r}
+mod_rich <- glmmTMB(richness ~ scenario * S * C + (1|fw_id/rep), data = simCS)
+mod_stab <- glmmTMB(cv_com ~ scenario * S * C + (1|fw_id/rep), data = simCS)
+```
+
+```{r}
+mod_rich <- glmmTMB(richness ~ scenario * S * C + (1|fw_id/rep), data = simCS)
+```
+
+
+
