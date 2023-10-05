@@ -1,0 +1,140 @@
+---
+title: Report
+author: John Doe
+date: March 22, 2005
+output:
+  bookdown::pdf_document2
+---
+
+```{r setup, include=FALSE}
+library(rmarkdown)
+library(officedown)
+knitr::opts_chunk$set(echo = FALSE,
+                      collapse = TRUE,
+                      comment = "#>",
+                      fig.path = "graphics/knitr-",
+                      fig.retina = 1.618, # Control using dpi
+                      fig.width = 8,  # generated images
+                      fig.pos = "H",  # pdf mode
+                      #fig.align = "center",
+                      dpi = if (knitr::is_latex_output()) 72 else 300,
+                      out.width = "100%",
+                      dev = "svg",
+                      dev.args = list(png = list(type = "cairo-png")),
+                      optipng = "-o1 -quiet")
+
+library(here)
+library(tidyverse)
+library(magrittr)
+library(cowplot)
+library(targets)
+library(kableExtra)
+```
+
+```{r}
+tar_load(param_CS)
+```
+
+# Methods
+
+## Food-web generation
+
+- Niche model
+- Number of replicates: 100
+
+## Experiments
+
+### Scenario
+
+- 3 scenario that follows each other (i.e. ordered):
+  1. The predator is present
+  2. We removed the top predator (species with the highest trophic level has its
+     biomass sets to 0)
+  3. We incorporate back the predator with an initial biomass equals to the
+     average biomass of the other species
+
+We simulated the dynamic of each food-web until that we reached a steady state
+(sum of biomass derivatives < 10^-6). We then simulated again the community at
+steady state for 300 timesteps and collected the last 200 timesteps to
+compute the community metrics.
+
+We then performed three experiments to see how the various context of the
+ecological communities affects the result of the reintroduction.
+
+### Complexity: connectance and richness
+
+- Initial connectance: `r unique(param_CS$C)`
+- Initial richness: `r unique(param_CS$S)`
+
+### Predator size
+
+
+### Predator generality
+
+### Predator propagule size
+
+## Data analysis
+
+- Richness, persistence
+- Average interaction strength, average per capita interaction strength
+- Stability:
+  - Community stability (1 / CV)
+  - Average population stability: 1 / weighted mean of population CV
+  - Mean population stability: 1 / mean of population CV
+
+
+For each of the metrics above, we computed the effect of (1) extirpation, (2)
+reintroduction after expirpation, and the effect of reintroduction relative to
+the original community (3). For each of the metrics, we then computed:
+
+1. Extirpation effect: extirpation - predator present
+2. Reintroduction effect: reintroduction - extirpation
+3. Resilience effect: reintroduction - predator present
+
+# Result
+
+```{r}
+toby_res_cap <- "Mean population stability, community stability and weighted
+average population stability according to initial species richness
+and initial connectance. The colors are according to the timeline: predator
+present, extirpated or reintroduced" %>%
+  str_replace_all("\\s+", " ")
+```
+
+
+```{r toby, fig.cap = toby_res_cap}
+knitr::include_graphics(here("report", "figs", "p_toby_res.png"))
+```
+
+It is more blurry when we look at community stability and weighted average
+population stability.
+
+
+```{r}
+reintro_effect_cap <- "Effects of retrointroduction on community metrics.
+Computed as (reintroduction - extirpation) / extirpation." %>%
+  str_replace_all("\\s+", " ")
+
+extirp_effect_cap <- "Effects of extirpation on community metrics.
+Computed as (extirpation - predator present) / predator present." %>%
+  str_replace_all("\\s+", " ")
+
+resilience_effect_cap <- "Effects of resilience on community metrics.
+Computed as (reintroduction - predator present) / reintroduction." %>%
+  str_replace_all("\\s+", " ")
+
+```
+
+
+```{r reintro-eff, fig.cap = reintro_effect_cap}
+knitr::include_graphics(here("report", "figs", "p_reintro_effect.png"))
+```
+
+```{r extirp-eff, fig.cap = extirp_effect_cap}
+knitr::include_graphics(here("report", "figs", "p_extirpation_effect.png"))
+```
+
+```{r resilience-eff, fig.cap = resilience_effect_cap}
+knitr::include_graphics(here("report", "figs", "p_resilience_effect.png"))
+```
+

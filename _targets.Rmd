@@ -166,27 +166,98 @@ lapply(
   FUN = source)
 ```
 
+- Should discard foodweb that had persistence less than 80% as Toby did
+
 ```{r}
 tar_load(c(param_CS, simCS))
 
+# Only few replicates have a low persistence
+simCS %>%
+  filter(scenario == "pred_present", persistence < .8)
+# All food-webs have predators
+simCS %>%
+  filter(scenario == "pred_present", tlvl_max < 2)
+
 simCS %<>%
+  mutate(
+    mean_cv_pop = map_dbl(cv_species, mean)
+  ) %>%
   select(!where(is.list)) %>%
   left_join(param_CS %>% select(!where(is.list))) %>%
   mutate(
     scenario = factor(scenario,
       levels = c("pred_present", "pred_extirpated", "pred_reintroduced")),
-    stab_com = log(1 / cv_com)
-  )
+    stab_com = 1 / cv_com,
+    avg_stab_pop = 1 / cv_species_mean,
+    mean_stab_pop = 1 / mean_cv_pop
+
+  ) %>%
+  relocate(all_of(c("stab_com", "avg_stab_pop", "mean_stab_pop")), .after = richness) %>%
+  select(-cv_com, -cv_species_mean, -mean_cv_pop)
+
 ```
 
 ## Predator removal
 
 ```{r}
-simCS %>%
-  ggplot(aes(y = stab_com, x = S, color = scenario)) +
+p_stab_com <- simCS %>%
+  ggplot(aes(y = log(stab_com), x = S, color = scenario)) +
   geom_point() +
   geom_smooth(method = "lm") +
-  facet_grid(cols = vars(C))
+  labs(
+    y = "Community stability",
+    x = "Initial foodweb richness",
+    color = "Scenario"
+    ) +
+  facet_grid(cols = vars(C)) +
+  theme_bw() +
+  theme(legend.position = "bottom")
+
+p_avg_stab_pop <- simCS %>%
+  ggplot(aes(y = log(avg_stab_pop), x = S, color = scenario)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  labs(
+    y = "Average population stability (weighted)",
+    x = "Initial foodweb richness",
+    color = "Scenario"
+    ) +
+  facet_grid(cols = vars(C)) +
+  theme_bw() +
+  theme(legend.position = "bottom")
+
+p_mean_stab_pop <- simCS %>%
+  ggplot(aes(y = log(mean_stab_pop), x = S, color = scenario)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  labs(
+    y = "Mean population stability (non weighted)",
+    x = "Initial foodweb richness",
+    color = "Scenario"
+    ) +
+  facet_grid(cols = vars(C)) +
+  theme_bw() +
+  theme(legend.position = "bottom")
+
+leg <- get_legend(p_avg_stab_pop)
+
+p_toby_res <- plot_grid(
+  p_mean_stab_pop + theme(legend.position = "none"),
+  p_stab_com + theme(legend.position = "none"),
+  p_avg_stab_pop+ theme(legend.position = "none"),
+  leg,
+  nrow = 4,
+  rel_heights = c(1, 1, 1, .2)
+)
+
+ggsave(
+  here::here("report", "figs", "p_toby_res.png"),
+  plot = p_toby_res,
+  scale = 2.4,
+  width = 140,
+  height = 140 * .8,
+  units = "mm"
+)
 ```
 
 
@@ -207,31 +278,76 @@ exp_effect <- simCS %>%
 ```
 
 ```{r}
-exp_effect %>%
+p_extirpation_effect <- exp_effect %>%
   filter(effect_extirpation_ratio < 5) %>%
   ggplot(aes(x = as.factor(S), y = effect_extirpation_ratio, color = as.factor(C))) +
   geom_boxplot() +
+  geom_hline(yintercept = 0)+
+  labs(
+    y = "Extirpation effect (extirpated - pred present)/pred present",
+    x = "Initial foodweb richness",
+    color = "Connectance"
+    ) +
   facet_wrap(~metric, scales = "free_y") +
-  theme_bw()
+  theme_bw() +
+  theme(legend.position = "bottom")
+ggsave(
+  here::here("report", "figs", "p_extirpation_effect.png"),
+  plot = p_extirpation_effect,
+  scale = 2,
+  width = 140,
+  height = 140 * .5,
+  units = "mm"
+)
 ```
 
 
 ```{r}
-exp_effect %>%
-  filter(effect_reintro_ratio < 5) %>%
+p_effect_reintro <- exp_effect %>%
+  filter(abs(effect_reintro_ratio) < 5) %>%
   ggplot(aes(x = as.factor(S), y = effect_reintro_ratio, color = as.factor(C))) +
   geom_boxplot() +
+  labs(
+    y = "Reintroduction effect (reintro - extirpated)/extirpated",
+    x = "Initial foodweb richness",
+    color = "Connectance"
+    ) +
+  geom_hline(yintercept = 0)+
   facet_wrap(~metric, scales = "free_y") +
-  theme_bw()
+  theme_bw() +
+  theme(legend.position = "bottom")
+ggsave(
+  here::here("report", "figs", "p_reintro_effect.png"),
+  plot = p_effect_reintro,
+  scale = 2,
+  width = 140,
+  height = 140 * .5,
+  units = "mm"
+)
 ```
 
 ```{r}
-exp_effect %>%
+p_resilience_effect <- exp_effect %>%
   filter(effect_resilience_ratio < 5) %>%
   ggplot(aes(x = as.factor(S), y = effect_resilience_ratio, color = as.factor(C))) +
   geom_boxplot() +
+  geom_hline(yintercept = 0)+
+  labs(
+    y = "Resilience effect (reintro - pred present)/pred present",
+    x = "Initial foodweb richness",
+    color = "Connectance"
+    ) +
   facet_wrap(~metric, scales = "free_y") +
-  theme_bw()
+  theme_bw() +
+  theme(legend.position = "bottom")
+ggsave(
+  here::here("report", "figs", "p_resilience_effect.png"),
+  plot = p_resilience_effect,
+  scale = 2,
+  width = 140,
+  height = 140 * .5,
+  units = "mm"
+)
 ```
 
 ```{r}
