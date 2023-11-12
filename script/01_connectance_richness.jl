@@ -40,7 +40,7 @@ seed!(22)
 # Big df result with a "step" key: "present", "extirpated", "reintroduced"
 
 # Load Foodweb
-fw_comb_df = DataFrame(Arrow.Table(joinpath(dir, "data/fw_C_S.arrow")))
+fw_comb_df = DataFrame(Arrow.Table(joinpath(dir, "data/sim_param.arrow")))
 
 # Reshape arrays and make a vector
 fw_comb_df[!, :fw] = map(x -> reshape_array(x), fw_comb_df[:, :fw])
@@ -75,7 +75,7 @@ sim_df = DataFrame(skipmissing(sim))
 sim_extinction = @showprogress pmap(x -> merge(
                                                (sim_id = x.sim_id, fw = x.fw, Z = x.Z, nb_link = x.nb_link),
                                                (out = begin
-                                      fw = FoodWeb(x.fw, Z = 100)
+                                      fw = FoodWeb(x.fw, Z = x.Z)
                                       p = ModelParameters(fw)
                                       # Max tlvl among alive species
                                       max_tlvl_alive = findmax(x.tlvl[x.species_alive])
@@ -102,10 +102,19 @@ sim_extinction = @showprogress pmap(x -> merge(
 
 
 # Re-introduction:
-sim_reintroduction = @showprogress pmap(x -> merge(
-                                                   (sim_id = x.sim_id, fw = x.fw, Z = x.Z, nb_link = x.nb_link),
+sim_reintroduction = pmap(x -> merge(
+                                     (sim_id = x.sim_id, fw = x.fw, Z = x.Z, nb_link = x.nb_link),
                                      (out = begin
                                           fw = FoodWeb(x.fw, Z = x.Z)
+                                          # Remove or add link to the predator
+                                          if (!ismissing(x.nb_link))
+                                              f = add_remove_link_species(fw,
+                                                                          x.i_extirpated;
+                                                                          nb_link = x.nb_link)
+                                          else
+                                              f = fw.A
+                                          end
+                                          fw = FoodWeb(f, Z = x.Z)
                                           p = ModelParameters(fw)
                                           init_bm = x.bm_sp
                                           # Re-introduce the predator:
