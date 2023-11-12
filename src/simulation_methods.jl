@@ -30,14 +30,15 @@ function sim_output(m; last = 100)
     p = get_parameters(m)
     bm = biomass(m, last = last)
     p = get_parameters(m)
+    fw = p.network.A
     troph = trophic_structure(m, last = last)
-    troph_class = trophic_classes(troph.alive_A)
+    troph_class = trophic_classes(fw)
     pref_alive = p.functional_response.ω[troph.alive_species, troph.alive_species]
     omni = omnivory(pref_alive, weighted = true)
     cv = coefficient_of_variation(m, last = last)
     int = empirical_interaction_strength(m, p, last = last).mean
     int_per_capita = int ./ bm.species
-
+    A_alive = troph.alive_A
     (
      richness = richness(m),
      persistence = species_persistence(m),
@@ -47,11 +48,11 @@ function sim_output(m; last = 100)
      bm_cons = sum(bm.species[troph_class.intermediate_consumers]),
      bm_prod = sum(bm.species[troph_class.producers]),
      species_alive = troph.alive_species,
-     A_alive = troph.alive_A,
-     tlvl = troph.alive_trophic_level,
+     tlvl = trophic_levels(fw),
      tlvl_max = troph.max,
      tlvl_mean = troph.mean,
      tlvl_w_mean = troph.weighted_mean,
+     connectance = connectance(A_alive),
      omnivory = omni,
      omnivory_mean = mean(omni),
      cv_com = cv.community,
@@ -84,8 +85,7 @@ function scenario_output(m, B0, fw;
            tlvl_extirpated = tlvl_extirpated,
            i_extirpated = i_extirpated,
            i_introduced = i_introduced,
-           tlvl_introduced = tlvl_introduced,
-           A_init = fw.A
+           tlvl_introduced = tlvl_introduced
           )
    )
 end

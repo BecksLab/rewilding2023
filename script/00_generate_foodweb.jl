@@ -24,94 +24,86 @@ import Random.seed!
 seed!(22)
 
 nrep = 100
-S = [20, 30, 40, 60]
-C = [0.05, 0.1, 0.15, 0.2]
+S = [10, 20, 30, 40, 60]
+C = [0.05, 0.1, 0.15, 0.2, .25, 0.3]
+Z = [10, 20, 50, 100, 200, 500, 1000]
+G_levels = [missing, 1, 3, 5, 7, 9]
 
 ########################
 #  Generate Food-webs  #
 ########################
 rep = 1:nrep
-name = (:rep, :richness, :connectance)
+name = (:rep, :richness, :connectance, :PPMR, :nb_link)
 param = map(p -> (;Dict(k => v for (k, v) in zip(name, p))...),
-            Iterators.product(rep, S, C)
+            Iterators.product(rep, S, C, Z, G_levels)
            )[:]
 
-foodweb = pmap(p -> (rep = p.rep, S = p.richness, C = p.connectance,
-                    fw = try_foodweb(p.richness; C = p.connectance,
-                                tol_C = .05,
-                                check_cycle = false,
-                                check_disconnected = true,
-                                n = 5
-                               ).A
+# Filter impossible combination of C/S
+limitCS = (
+           S = S,
+           Cmin = round.([(i - 1)/ i^2 + .01 for i in S], digits = 2),
+           Cmax = [.33, .24, .22, .17, .12]
+          )
+# Select good combinations
+goodCSparam_v = [
+                 findall(x ->
+                         (
+                          x.connectance >= limitCS.Cmin[i] &&
+                          x.connectance <= limitCS.Cmax[i]) &&
+                         x.richness == limitCS.S[i],
+                         param
+                        )
+                 for i in 1:length(limitCS.S)
+                ]
+goodCSparam_idxs = reduce(vcat, goodCSparam_v)
+param = param[goodCSparam_idxs]
+
+foodweb = pmap(p -> (
+                     rep = p.rep, S = p.richness, C = p.connectance,
+                     Z = p.PPMR, nb_link = p.nb_link,
+                     fw = try
+                         FoodWeb(nichemodel, p.richness; C = p.connectance,
+                                 Z = p.PPMR,
+                                 tol_C = .03,
+                                 check_cycle = true,
+                                 check_disconnected = true).A
+                     catch
+                         missing
+                     end
                   ),
-            param
+               param
             )
 df_fw = DataFrame(foodweb)
 # Create a foodweb_id
-df_fw[!, :fw_id] = 1:nrow(df_fw)
+df_fw[!, :sim_id] = 1:nrow(df_fw)
+# Remove missing fw
+df_fw = df_fw[[!ismissing(df_fw[i, :fw]) for i in 1:nrow(df_fw)], :]
 
-Arrow.write(joinpath(dir, "data/fw_C_S.arrow"), df_fw)
+Arrow.write(joinpath(dir, "data/sim_param.arrow"), df_fw)
 
+# Create a toy parameter dataset for testing
+param_toy_v = findall(x -> x.rep == 1, param)
+param_toy_idxs = reduce(vcat, param_toy_v)
+param_toy = param[param_toy_idxs]
+foodweb_toy = pmap(p -> (
+                     rep = p.rep, S = p.richness, C = p.connectance,
+                     Z = p.PPMR, nb_link = p.nb_link,
+                     fw = try
+                         FoodWeb(nichemodel, p.richness; C = p.connectance,
+                                 Z = p.PPMR,
+                                 tol_C = .03,
+                                 check_cycle = true,
+                                 check_disconnected = true).A
+                     catch
+                         missing
+                     end
+                  ),
+               param_toy
+            )
+df_fw_toy = DataFrame(foodweb_toy)
+# Create a foodweb_id
+df_fw_toy[!, :sim_id] = 1:nrow(df_fw_toy)
+# Remove missing fw
+df_fw_toy = df_fw_toy[[!ismissing(df_fw_toy[i, :fw]) for i in 1:nrow(df_fw_toy)], :]
 
-############################################################################################
-#                                    Other experiments                                     #
-############################################################################################
-
-# We stick with:
-C = 0.15
-S = 60
-
-
-##################
-#  Z experiment  #
-##################
-
-# Z experiment
-Z = [10, 20, 50, 100, 200, 500, 1000]
-selected_fw = filter([:S, :C] => (x, y) -> x == S && y == C, df_fw)
-
-rep = 1:nrep
-name = (:rep, :Z)
-param = map(p -> (;Dict(k => v for (k, v) in zip(name, p))...),
-            Iterators.product(rep, Z)
-           )[:]
-
-dfZ = DataFrame(param)
-dfZ.fw = [selected_fw.fw[i] for i in dfZ.rep]
-dfZ.fw_id = 1:nrow(dfZ)
-Arrow.write(joinpath(dir, "data/fw_Z.arrow"), dfZ)
-
-####################
-#  Propagule size  #
-####################
-
-# Propagule size
-B_levels = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75]
-
-rep = 1:nrep
-name = (:rep, :introduced_size)
-param = map(p -> (;Dict(k => v for (k, v) in zip(name, p))...),
-            Iterators.product(rep, B_levels)
-           )[:]
-
-dfB = DataFrame(param)
-dfB.fw = [selected_fw.fw[i] for i in dfB.rep]
-dfB.fw_id = 1:nrow(dfB)
-Arrow.write(joinpath(dir, "data/fw_B.arrow"), dfB)
-
-################
-#  Generality  #
-################
-
-G_levels = [1, 3, 5, 7, 9]
-
-rep = 1:nrep
-name = (:rep, :nb_link)
-param = map(p -> (;Dict(k => v for (k, v) in zip(name, p))...),
-            Iterators.product(rep, G_levels)
-           )[:]
-
-dfG = DataFrame(param)
-dfG.fw = [selected_fw.fw[i] for i in dfG.rep]
-dfG.fw_id = 1:nrow(dfG)
-Arrow.write(joinpath(dir, "data/fw_G.arrow"), dfG)
+Arrow.write(joinpath(dir, "data/sim_param_toy.arrow"), df_fw_toy)

@@ -47,38 +47,42 @@ fw_comb_df[!, :fw] = map(x -> reshape_array(x), fw_comb_df[:, :fw])
 fw_comb = NamedTuple.(eachrow(fw_comb_df))
 
 sim = @showprogress pmap(x -> merge(
-                      (fw_id = x.fw_id,),
-                      (
-                       out = begin
-                           fw = FoodWeb(x.fw, Z = 100)
-                           p = ModelParameters(fw)
-                           B0 = Base.rand(richness(fw))
-                           m = sim_steady_state_last(p, B0, last = 100)
-                           scenario_output(m, B0, fw;
-                                           last = 100,
-                                           scenario = "pred_present",
-                                           i_extirpated = missing,
-                                           tlvl_extirpated = missing,
-                                           i_introduced = missing,
-                                           tlvl_introduced = missing,
-                                          )
-                       end,
-                      ).out
-                     ),
-           fw_comb; on_error = ex -> missing,
-           batch_size = 100
-          )
+                                    (sim_id = x.sim_id, fw = x.fw, Z = x.Z, nb_link = x.nb_link),
+                                    (
+                                     out = begin
+                                         fw = FoodWeb(x.fw, Z = x.Z)
+                                         p = ModelParameters(fw)
+                                         B0 = Base.rand(richness(fw))
+                                         m = sim_steady_state_last(p, B0, last = 100)
+                                         scenario_output(m, B0, fw;
+                                                         last = 100,
+                                                         scenario = "pred_present",
+                                                         i_extirpated = missing,
+                                                         tlvl_extirpated = missing,
+                                                         i_introduced = missing,
+                                                         tlvl_introduced = missing,
+                                                        )
+                                     end,
+                                    ).out
+                                   ),
+                         fw_comb; on_error = ex -> missing,
+                         batch_size = 100
+                        )
 sim_df = DataFrame(skipmissing(sim))
 
 
 # Without top predator
 sim_extinction = @showprogress pmap(x -> merge(
-                                 (fw_id = x.fw_id, ),
-                                 (out = begin
-                                      fw = FoodWeb(x.A_alive, Z = 100)
+                                               (sim_id = x.sim_id, fw = x.fw, Z = x.Z, nb_link = x.nb_link),
+                                               (out = begin
+                                      fw = FoodWeb(x.fw, Z = 100)
                                       p = ModelParameters(fw)
-                                      introduced_tl, introduced_i = findmax(x.tlvl)
-                                      init_bm = x.bm_sp[x.species_alive]
+                                      # Max tlvl among alive species
+                                      max_tlvl_alive = findmax(x.tlvl[x.species_alive])
+                                      introduced_tl = max_tlvl_alive[1]
+                                      # species index in the original community
+                                      introduced_i = x.species_alive[max_tlvl_alive[2]]
+                                      init_bm = x.bm_sp
                                       init_bm[introduced_i] = 0
                                       m = sim_steady_state_last(p, init_bm, last = 100)
                                       scenario_output(m, init_bm, fw;
@@ -99,9 +103,9 @@ sim_extinction = @showprogress pmap(x -> merge(
 
 # Re-introduction:
 sim_reintroduction = @showprogress pmap(x -> merge(
-                                     (fw_id = x.fw_id, ),
+                                                   (sim_id = x.sim_id, fw = x.fw, Z = x.Z, nb_link = x.nb_link),
                                      (out = begin
-                                          fw = FoodWeb(x.A_init, Z = 100)
+                                          fw = FoodWeb(x.fw, Z = x.Z)
                                           p = ModelParameters(fw)
                                           init_bm = x.bm_sp
                                           # Re-introduce the predator:
@@ -125,4 +129,4 @@ sim_reintroduction = @showprogress pmap(x -> merge(
 sim_tot = [sim; sim_extinction; sim_reintroduction]
 sim_tot_df = DataFrame(skipmissing(sim_tot))
 
-Arrow.write(joinpath(dir, "data/simCS.arrow"),sim_tot_df)
+Arrow.write(joinpath(dir, "data/sim_total.arrow"), sim_tot_df)
