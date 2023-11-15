@@ -69,6 +69,7 @@ sim = @showprogress pmap(x -> merge(
                          batch_size = 100
                         )
 sim_df = DataFrame(skipmissing(sim))
+Arrow.write(joinpath(dir, "data/sim_pred_present.arrow"), sim_df)
 
 
 # Without top predator
@@ -100,6 +101,8 @@ sim_extinction = @showprogress pmap(x -> merge(
                                     batch_size = 100
                                    )
 
+sim_extinction_df = DataFrame(skipmissing(sim_extinction))
+Arrow.write(joinpath(dir, "data/sim_extinction.arrow"), sim_extinction_df)
 
 # Re-introduction:
 sim_reintroduction = pmap(x -> merge(
@@ -134,6 +137,8 @@ sim_reintroduction = pmap(x -> merge(
                           sim_extinction; on_error = ex -> missing,
                           batch_size = 100
                          )
+sim_reintroduction_df = DataFrame(skipmissing(sim_reintroduction))
+Arrow.write(joinpath(dir, "data/sim_reintroduction.arrow"), sim_reintroduction_df)
 
 sim_tot = [sim; sim_extinction; sim_reintroduction]
 sim_tot_df = DataFrame(skipmissing(sim_tot))
