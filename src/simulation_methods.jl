@@ -7,7 +7,7 @@ function sim_steady_state_last(p, B0;
         verbose = true,
         kwargs...)
     steady_sim = simulate(p, B0, callback = CallbackSet(
-                                                     TerminateSteadyState(1e-6, 1e-4),
+                                                     TerminateSteadyState(min_t = 200),
                                                      ExtinctionCallback(extinction_threshold, p, verbose)
                                                     ),
                        kwargs...
@@ -88,4 +88,21 @@ function scenario_output(m, B0, fw;
            tlvl_introduced = tlvl_introduced
           )
    )
+end
+
+"""
+
+# Examples
+sanatize_biomass([1, -1, 1], [1, 2, 3]) == [1, 0, 1]
+sanatize_biomass([1, -1, 1], [1, 2]) == [1, 0, 0]
+"""
+function sanatize_biomass(bm, alive)
+    # For negative biomass
+    bm[bm .< 0] .= 0
+
+    # For dead species
+    in_alive = in(alive)
+    mask_no_alive = .! in_alive.(1:length(bm))
+    bm[mask_no_alive] .= 0
+    bm
 end

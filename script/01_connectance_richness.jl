@@ -46,6 +46,9 @@ fw_comb_df = DataFrame(Arrow.Table(joinpath(dir, "data/sim_param.arrow")))
 fw_comb_df[!, :fw] = map(x -> reshape_array(x), fw_comb_df[:, :fw])
 fw_comb = NamedTuple.(eachrow(fw_comb_df))
 
+# How many timestep to keep:
+last_timestep = 500
+
 sim = @showprogress pmap(x -> merge(
                                     (sim_id = x.sim_id, fw = x.fw, Z = x.Z, nb_link = x.nb_link),
                                     (
@@ -53,9 +56,13 @@ sim = @showprogress pmap(x -> merge(
                                          fw = FoodWeb(x.fw, Z = x.Z)
                                          p = ModelParameters(fw)
                                          B0 = Base.rand(richness(fw))
-                                         m = sim_steady_state_last(p, B0, last = 100)
+                                         m = sim_steady_state_last(p, B0,
+                                                                   last = last_timestep,
+                                                                   burn_in = last_timestep,
+                                                                   extinction_threshold = 1e-6
+                                                                  )
                                          scenario_output(m, B0, fw;
-                                                         last = 100,
+                                                         last = last_timestep,
                                                          scenario = "pred_present",
                                                          i_extirpated = missing,
                                                          tlvl_extirpated = missing,
@@ -71,7 +78,9 @@ sim = @showprogress pmap(x -> merge(
 sim_df = DataFrame(skipmissing(sim))
 Arrow.write(joinpath(dir, "data/sim_pred_present.arrow"), sim_df)
 
-
+# Add check for dead species: put their biomass to 0
+# Add check for negative bm: put their biomass to 0
+#
 # Without top predator
 sim_extinction = @showprogress pmap(x -> merge(
                                                (sim_id = x.sim_id, fw = x.fw, Z = x.Z, nb_link = x.nb_link),
@@ -83,11 +92,15 @@ sim_extinction = @showprogress pmap(x -> merge(
                                       introduced_tl = max_tlvl_alive[1]
                                       # species index in the original community
                                       introduced_i = x.species_alive[max_tlvl_alive[2]]
-                                      init_bm = x.bm_sp
+                                      init_bm = sanatize_biomass(x.bm_sp, x.species_alive)
                                       init_bm[introduced_i] = 0
-                                      m = sim_steady_state_last(p, init_bm, last = 100)
+                                      m = sim_steady_state_last(p, init_bm,
+                                                                last = last_timestep,
+                                                                burn_in = last_timestep,
+                                                                extinction_threshold = 1e-6
+                                                               )
                                       scenario_output(m, init_bm, fw;
-                                                      last = 100,
+                                                      last = last_timestep,
                                                       scenario = "pred_extirpated",
                                                       i_extirpated = introduced_i,
                                                       tlvl_extirpated = introduced_tl,
@@ -119,12 +132,16 @@ sim_reintroduction = pmap(x -> merge(
                                           end
                                           fw = FoodWeb(f, Z = x.Z)
                                           p = ModelParameters(fw)
-                                          init_bm = x.bm_sp
+                                          init_bm = sanatize_biomass(x.bm_sp, x.species_alive)
                                           # Re-introduce the predator:
                                           init_bm[x.i_extirpated] = mean(init_bm[init_bm .> 0])
-                                          m = sim_steady_state_last(p, init_bm, last = 100)
+                                          m = sim_steady_state_last(p, init_bm,
+                                                                last = last_timestep,
+                                                                burn_in = last_timestep,
+                                                                extinction_threshold = 1e-6
+                                                                )
                                           scenario_output(m, init_bm, fw;
-                                                          last = 100,
+                                                          last = last_timestep,
                                                           scenario = "pred_reintroduced",
                                                           i_extirpated = missing,
                                                           tlvl_extirpated = missing,

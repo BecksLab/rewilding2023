@@ -8,3 +8,9 @@ simG.arrow
 simZ.arrow
 sim_total.arrow
 sim.RData
+sim_extinction.arrow
+sim_reintroduction.arrow
+sim_pred_present.arrow
+sim_param.arrow
+sim_param_toy.arrow
+sim.RData

@@ -103,6 +103,11 @@ list(
   tar_target(sim_param,
     open_dataset(here("data", "sim_param.arrow"), format = "arrow") %>%
       collect()
+  ),
+  tar_target(sim, sim_param %>%
+    select(-fw, nb_link, Z) %>%
+    left_join(sim_total) %>%
+    select(sim_id, S, C, Z, nb_link, fw, rep, everything())
   )
 )
 ```
@@ -140,7 +145,7 @@ list(
 
 # Make targets
 
-```{r}
+```{r make}
 ncpu <- future::availableCores()
 if (ncpu > 4) {
   tar_make_future(workers = min(future::availableCores() - 1, 24))
@@ -175,15 +180,14 @@ lapply(
 ```
 
 ```{r}
-tar_load(sim_total)
 tar_load(sim_param)
+tar_load(sim)
 
-sim <- sim_param %>%
-  select(-fw, nb_link, Z) %>%
-  left_join(sim_total) %>%
-  select(sim_id, S, C, Z, nb_link, fw, rep, everything())
+
 save(sim, file = here("data", "sim.RData"))
 ```
+
+
 
 
 - Should discard foodweb that had persistence less than 80% as Toby did
