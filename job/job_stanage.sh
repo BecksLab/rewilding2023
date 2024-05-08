@@ -5,7 +5,7 @@
 # Amount of RAM requested per job
 #SBATCH --mem=64G
 # Nb of threads requested per job (smp = shared memory)
-#SBATCH --cpus-per-task=15
+#SBATCH --cpus-per-task=20
 #SBATCH --ntasks=1
 #SBATCH --time=96:00:00
 
