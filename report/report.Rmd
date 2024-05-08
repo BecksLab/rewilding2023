@@ -10,18 +10,17 @@ output:
 library(rmarkdown)
 library(officedown)
 knitr::opts_chunk$set(echo = FALSE,
-                      collapse = TRUE,
-                      comment = "#>",
-                      fig.path = "graphics/knitr-",
-                      fig.retina = 1.618, # Control using dpi
-                      fig.width = 8,  # generated images
-                      fig.pos = "H",  # pdf mode
-                      #fig.align = "center",
-                      dpi = if (knitr::is_latex_output()) 72 else 300,
-                      out.width = "100%",
-                      dev = "svg",
-                      dev.args = list(png = list(type = "cairo-png")),
-                      optipng = "-o1 -quiet")
+  collapse = TRUE,
+  comment = "#>",
+  fig.retina = 1.618, # Control using dpi
+  fig.width = 8,  # generated images
+  fig.pos = "H",  # pdf mode
+  #fig.align = "center",
+  dpi = if (knitr::is_latex_output()) 72 else 300,
+  out.width = "100%",
+  dev = "svg",
+  dev.args = list(png = list(type = "cairo-png")),
+  optipng = "-o1 -quiet")
 
 library(here)
 library(tidyverse)
@@ -148,7 +147,8 @@ failed_sim <- sim %>%
   filter(is.na(scenario))
 ```
 
-There were `r nrow(failed_sim)` simulations which failed to complete.
+There were `r nrow(failed_sim)` simulations which failed to complete,
+i.e. `r round(nrow(failed_sim)/nrow(sim) * 100, 2)`%.
 
 
 ```{r}
@@ -165,46 +165,83 @@ extirpation or reintroduction of the predator, which is basically impossible.
 
 Let's check correspondance between biomass and richness
 
+
+
 ```{r}
 ti <- sim %>%
   select(sim_id, richness, persistence, bm_sp, species_alive) %>%
   mutate(
     l_bm_sp = map_int(bm_sp, ~length(.x)),
-    l_alive_bm = map_int(bm_sp, ~length(.x[.x > 10^-6]))
+    l_alive_bm = map_int(bm_sp, ~length(.x[.x > 0]))
   )
-check_persistence <- ti %>%
-  filter(persistence != richness / l_bm_sp)
-stopifnot(nrow(check_persistence) == 0)
+check_bm_alive_match <- function(bm, alive) {
+  mask <- bm >= 0 & !seq_along(bm) %in% alive
+  out <- bm[mask]
+  ifelse(length(out) == 0, NA, out)
+}
 check_bm_sp <- ti %>%
-  filter(richness != l_alive_bm) %>%
   mutate(
     bm_dead = map2(
-      bm_sp, species_alive,
-      function(bm, alive) {
-        mask <- bm > 10^-6 & !seq_along(bm) %in% alive
-        bm[mask]
-      }
-    ),
+      bm_sp, species_alive, check_bm_alive_match),
   bm_dead1 = map_dbl(bm_dead, 1)
   )
+na_check_bm_sp <- check_bm_sp %>%
+  filter(is.na(bm_dead))
+nrow(na_check_bm_sp)
+nrow(check_bm_sp)
 ```
 
 ```{r}
-hist(check_bm_sp$bm_dead1)
-summary(check_bm_sp$bm_dead1)
+colnames(sim)
+check_extirpation <- sim %>%
+  filter(scenario == "pred_extirpated") %>%
+  mutate(
+    check = map2_dbl(bm_sp, i_extirpated, ~.x[.y]),
+    check_init = map2_dbl(bm_init, i_extirpated, ~.x[.y]),
+    check_alive = map2_lgl(species_alive, i_extirpated, ~any(.x == .y))
+    )
 ```
+
+```{r}
+# All good
+stopifnot(all(check_extirpation$check_init == 0))
+check_extirpation %>%
+  select(sim_id, check) %>%
+  filter(check == 0)
+check_extirpation %>%
+  filter(check_alive)
+```
+
+
+```{r}
+hist(check_bm_sp$bm_dead1)
+summary(check_bm_sp$bm_dead)
+```
+
 ```{r}
 check_bm_sp %>%
   filter(bm_dead1 > .67)
 sim %>%
   filter(sim_id %in% check_bm_sp$sim_id)
-# Sim 56 quite problematic
-mask_id <- sim$sim_id == 56
-sim[mask_id, ]
-sim[mask_id, ]$bm_init
 ```
 
 
+```{r}
+colnames(sim)
+to <- sim %>%
+  filter(sim_id == 930) %>%
+  arrange(scenario)
+sim[sim$sim_id == 930, ]$bm_sp
+sim[sim$sim_id == 930, ]$i_introduced
+sim[sim$sim_id == 930, ]$richness
+sim[sim$sim_id == 930, ]$richness
+sim[sim$sim_id == 930, ]$bm_init
+sim[sim$sim_id == 930, ]$species_alive
+sim %>%
+  mutate(
+
+  )
+```
 
 
 
@@ -239,7 +276,6 @@ Computed as (extirpation - predator present) / predator present." %>%
 resilience_effect_cap <- "Effects of resilience on community metrics.
 Computed as (reintroduction - predator present) / reintroduction." %>%
   str_replace_all("\\s+", " ")
-
 ```
 
 

@@ -70,32 +70,6 @@ Our first target borrows the `airquality` dataset built into base R.
 
 ```{targets load-data}
 list(
-  # Connectance-Richness
-  tar_target(param_CS,
-    open_dataset(here("data", "fw_C_S.arrow"), format = "arrow") %>%
-      collect()
-    ),
-  tar_target(simCS,
-    open_dataset(here("data", "simCS.arrow"), format = "arrow") %>%
-      collect()
-    ),
-  # Predator-Prey Size Ratio
-  tar_target(simZ,
-    open_dataset(here("data", "simZ.arrow"), format = "arrow") %>% collect()
-    ),
-  # Propagule size
-  tar_target(simB,
-    open_dataset(here("data", "simB.arrow"), format = "arrow") %>%
-      collect()
-    ),
-  tar_target(param_G,
-    open_dataset(here("data", "fw_G.arrow"), format = "arrow") %>%
-      collect()
-  ),
-  tar_target(simG,
-    open_dataset(here("data", "simG.arrow"), format = "arrow") %>%
-      collect()
-  ),
   tar_target(sim_total,
     open_dataset(here("data", "sim_total.arrow"), format = "arrow") %>%
       collect()
@@ -373,15 +347,4 @@ ggsave(
   units = "mm"
 )
 ```
-
-```{r}
-mod_rich <- glmmTMB(richness ~ scenario * S * C + (1|fw_id/rep), data = simCS)
-mod_stab <- glmmTMB(cv_com ~ scenario * S * C + (1|fw_id/rep), data = simCS)
-```
-
-```{r}
-mod_rich <- glmmTMB(richness ~ scenario * S * C + (1|fw_id/rep), data = simCS)
-```
-
-
 

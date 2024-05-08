@@ -45,9 +45,13 @@ fw_comb_df = DataFrame(Arrow.Table(joinpath(dir, "data/sim_param.arrow")))
 # Reshape arrays and make a vector
 fw_comb_df[!, :fw] = map(x -> reshape_array(x), fw_comb_df[:, :fw])
 fw_comb = NamedTuple.(eachrow(fw_comb_df))
+#fw_comb = fw_comb[repeat([27], 50)]
 
 # How many timestep to keep:
 last_timestep = 500
+burn_in_timestep = 2000
+extinct_threshold = 1e-5
+ndigits_bm = 5
 
 sim = @showprogress pmap(x -> merge(
                                     (sim_id = x.sim_id, fw = x.fw, Z = x.Z, nb_link = x.nb_link),
@@ -58,8 +62,8 @@ sim = @showprogress pmap(x -> merge(
                                          B0 = Base.rand(richness(fw))
                                          m = sim_steady_state_last(p, B0,
                                                                    last = last_timestep,
-                                                                   burn_in = last_timestep,
-                                                                   extinction_threshold = 1e-6
+                                                                   burn_in = burn_in_timestep,
+                                                                   extinction_threshold = extinct_threshold
                                                                   )
                                          scenario_output(m, B0, fw;
                                                          last = last_timestep,
@@ -68,6 +72,7 @@ sim = @showprogress pmap(x -> merge(
                                                          tlvl_extirpated = missing,
                                                          i_introduced = missing,
                                                          tlvl_introduced = missing,
+                                                         n_digits = ndigits_bm
                                                         )
                                      end,
                                     ).out
@@ -89,23 +94,24 @@ sim_extinction = @showprogress pmap(x -> merge(
                                       p = ModelParameters(fw)
                                       # Max tlvl among alive species
                                       max_tlvl_alive = findmax(x.tlvl[x.species_alive])
-                                      introduced_tl = max_tlvl_alive[1]
+                                      extirpated_tl = max_tlvl_alive[1]
                                       # species index in the original community
-                                      introduced_i = x.species_alive[max_tlvl_alive[2]]
+                                      extirpated_i = x.species_alive[max_tlvl_alive[2]]
                                       init_bm = sanatize_biomass(x.bm_sp, x.species_alive)
                                       init_bm[introduced_i] = 0
                                       m = sim_steady_state_last(p, init_bm,
                                                                 last = last_timestep,
-                                                                burn_in = last_timestep,
-                                                                extinction_threshold = 1e-6
+                                                                burn_in = burn_in_timestep,
+                                                                extinction_threshold = extinct_threshold
                                                                )
                                       scenario_output(m, init_bm, fw;
                                                       last = last_timestep,
                                                       scenario = "pred_extirpated",
-                                                      i_extirpated = introduced_i,
-                                                      tlvl_extirpated = introduced_tl,
+                                                      i_extirpated = extirpated_i,
+                                                      tlvl_extirpated = extirpated_tl,
                                                       i_introduced = missing,
                                                       tlvl_introduced = missing,
+                                                      n_digits = ndigits_bm
                                                      )
                                   end,
                                  ).out
@@ -137,8 +143,8 @@ sim_reintroduction = pmap(x -> merge(
                                           init_bm[x.i_extirpated] = mean(init_bm[init_bm .> 0])
                                           m = sim_steady_state_last(p, init_bm,
                                                                 last = last_timestep,
-                                                                burn_in = last_timestep,
-                                                                extinction_threshold = 1e-6
+                                                                burn_in = burn_in_timestep,
+                                                                extinction_threshold = extinct_threshold
                                                                 )
                                           scenario_output(m, init_bm, fw;
                                                           last = last_timestep,
@@ -146,7 +152,8 @@ sim_reintroduction = pmap(x -> merge(
                                                           i_extirpated = missing,
                                                           tlvl_extirpated = missing,
                                                           i_introduced = x.i_extirpated,
-                                                          tlvl_introduced = x.tlvl_extirpated
+                                                          tlvl_introduced = x.tlvl_extirpated,
+                                                          n_digits = ndigits_bm
                                            )
                                       end,
                                      ).out

@@ -1,21 +1,23 @@
 #' Simulate until steady state and then simulate for a `last` number of timestep with a step
 # of 1.
 function sim_steady_state_last(p, B0;
-        last = 100,
-        burn_in = 100,
-        extinction_threshold = 1e-6,
+        last = 500,
+        burn_in = 1500,
+        extinction_threshold = 1e-5,
         verbose = true,
+        min_t_steady_state = 1000,
         kwargs...)
-    steady_sim = simulate(p, B0, callback = CallbackSet(
-                                                     TerminateSteadyState(min_t = 200),
-                                                     ExtinctionCallback(extinction_threshold, p, verbose)
-                                                    ),
-                       kwargs...
-                      )
-    last_biomass = steady_sim[:, end]
+    # steady_sim = simulate(p, B0, callback = CallbackSet(
+                                                        # TerminateSteadyState(min_t = min_t_steady_state),
+                                                        # ExtinctionCallback(extinction_threshold, p, verbose)
+                                                       # ),
+                       # kwargs...
+                      # )
+    #steady_sim
+    #last_biomass = steady_sim[:, end]
     run_time = burn_in + last
 
-    simulate(p, last_biomass,
+    simulate(p, B0,
              tmax = run_time,
              saveat = 0:1:run_time,
              callback = CallbackSet(
@@ -26,7 +28,7 @@ function sim_steady_state_last(p, B0;
 end
 
 # The output extracted from the simulation
-function sim_output(m; last = 100)
+function sim_output(m; last = 100, n_digits = 7)
     p = get_parameters(m)
     bm = biomass(m, last = last)
     p = get_parameters(m)
@@ -42,7 +44,7 @@ function sim_output(m; last = 100)
     (
      richness = richness(m),
      persistence = species_persistence(m),
-     bm_sp = bm.species,
+     bm_sp = round.(bm.species, digits = n_digits),
      bm_total = bm.total,
      bm_pred = sum(bm.species[troph_class.top_predators]),
      bm_cons = sum(bm.species[troph_class.intermediate_consumers]),
@@ -56,8 +58,11 @@ function sim_output(m; last = 100)
      omnivory = omni,
      omnivory_mean = mean(omni),
      cv_com = cv.community,
+     stab_com = 1 / cv.community,
      cv_species = cv.species,
+     stab_species = 1 ./ cv.species,
      cv_species_mean = cv.species_mean,
+     stab_species_mean = 1 / cv.species_mean,
      int_mean = mean(int[int .> 0]),
      int_per_cap_mean = mean(int_per_capita[int_per_capita .> 0]),
     )
@@ -69,13 +74,14 @@ function scenario_output(m, B0, fw;
         i_extirpated = missing,
         tlvl_extirpated = missing,
         i_introduced = missing,
-        tlvl_introduced = missing
+        tlvl_introduced = missing,
+        kwargs...
     )
 
     troph_class_init = trophic_classes(fw)
     merge(
           (scenario = scenario, ),
-          sim_output(m, last = last),
+          sim_output(m; last = last, kwargs...),
           (
            richness_init = richness(B0),
            bm_init = B0,
