@@ -6,7 +6,9 @@ function sim_steady_state_last(p, B0;
         extinction_threshold = 1e-5,
         verbose = true,
         min_t_steady_state = 1000,
+        gc_thre = .01,
         kwargs...)
+    stoch_gc(gc_thre)
     # steady_sim = simulate(p, B0, callback = CallbackSet(
                                                         # TerminateSteadyState(min_t = min_t_steady_state),
                                                         # ExtinctionCallback(extinction_threshold, p, verbose)

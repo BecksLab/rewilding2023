@@ -41,6 +41,7 @@ seed!(22)
 
 # Load Foodweb
 fw_comb_df = DataFrame(Arrow.Table(joinpath(dir, "data/sim_param.arrow")))
+fw_comb_df = filter(:S => !=(60), fw_comb_df)
 
 # Reshape arrays and make a vector
 fw_comb_df[!, :fw] = map(x -> reshape_array(x), fw_comb_df[:, :fw])
@@ -54,14 +55,6 @@ extinct_threshold = 1e-5
 ndigits_bm = 5
 gc_prob = .01
 
-function stoch_gc(gc_thre)
-    if rand(Distributions.Uniform(0, 1)) < gc_thre
-        println("")
-        GC.gc()
-        ccall(:malloc_trim, Cvoid, (Cint,), 0)
-        GC.safepoint()
-    end
-end
 
 sim = @showprogress pmap(x -> merge(
                                     (sim_id = x.sim_id, fw = x.fw, Z = x.Z, nb_link = x.nb_link),
@@ -73,7 +66,8 @@ sim = @showprogress pmap(x -> merge(
                                          m = sim_steady_state_last(p, B0,
                                                                    last = last_timestep,
                                                                    burn_in = burn_in_timestep,
-                                                                   extinction_threshold = extinct_threshold
+                                                                   extinction_threshold = extinct_threshold,
+                                                                   gc_thre = gc_prob
                                                                   )
                                          scenario_output(m, B0, fw;
                                                          last = last_timestep,
@@ -100,7 +94,6 @@ Arrow.write(joinpath(dir, "data/sim_pred_present.arrow"), sim_df)
 sim_extinction = @showprogress pmap(x -> merge(
                                                (sim_id = x.sim_id, fw = x.fw, Z = x.Z, nb_link = x.nb_link),
                                                (out = begin
-                                                    stoch_gc(gc_prob)
                                       fw = FoodWeb(x.fw, Z = x.Z)
                                       p = ModelParameters(fw)
                                       # Max tlvl among alive species
@@ -113,7 +106,8 @@ sim_extinction = @showprogress pmap(x -> merge(
                                       m = sim_steady_state_last(p, init_bm,
                                                                 last = last_timestep,
                                                                 burn_in = burn_in_timestep,
-                                                                extinction_threshold = extinct_threshold
+                                                                extinction_threshold = extinct_threshold,
+                                                                gc_thre = gc_prob
                                                                )
                                       scenario_output(m, init_bm, fw;
                                                       last = last_timestep,
@@ -138,7 +132,6 @@ Arrow.write(joinpath(dir, "data/sim_extinction.arrow"), sim_extinction_df)
 sim_reintroduction = pmap(x -> merge(
                                      (sim_id = x.sim_id, fw = x.fw, Z = x.Z, nb_link = x.nb_link),
                                      (out = begin
-                                          stoch_gc(gc_prob)
                                           fw = FoodWeb(x.fw, Z = x.Z)
                                           # Remove or add link to the predator
                                           if (!ismissing(x.nb_link))
@@ -156,7 +149,8 @@ sim_reintroduction = pmap(x -> merge(
                                           m = sim_steady_state_last(p, init_bm,
                                                                 last = last_timestep,
                                                                 burn_in = burn_in_timestep,
-                                                                extinction_threshold = extinct_threshold
+                                                                extinction_threshold = extinct_threshold,
+                                                                gc_thre = gc_prob
                                                                 )
                                           scenario_output(m, init_bm, fw;
                                                           last = last_timestep,
