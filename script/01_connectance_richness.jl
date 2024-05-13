@@ -12,7 +12,7 @@ dir = expanduser("~/rewilding2023/")
 flag = "--project=" * dir
 #flag = "--project=."
 println("Workers run with flag: $(flag)")
-addprocs(15 - 1, exeflags=flag)
+addprocs(20 - 1, exeflags=flag)
 #addprocs(5, exeflags=flag)
 println("Using $(ncpu -2) cores")
 
@@ -52,6 +52,16 @@ last_timestep = 500
 burn_in_timestep = 2000
 extinct_threshold = 1e-5
 ndigits_bm = 5
+gc_prob = .01
+
+function stoch_gc(gc_thre)
+    if rand(Distributions.Uniform(0, 1)) < gc_thre
+        println("")
+        GC.gc()
+        ccall(:malloc_trim, Cvoid, (Cint,), 0)
+        GC.safepoint()
+    end
+end
 
 sim = @showprogress pmap(x -> merge(
                                     (sim_id = x.sim_id, fw = x.fw, Z = x.Z, nb_link = x.nb_link),
@@ -90,6 +100,7 @@ Arrow.write(joinpath(dir, "data/sim_pred_present.arrow"), sim_df)
 sim_extinction = @showprogress pmap(x -> merge(
                                                (sim_id = x.sim_id, fw = x.fw, Z = x.Z, nb_link = x.nb_link),
                                                (out = begin
+                                                    stoch_gc(gc_prob)
                                       fw = FoodWeb(x.fw, Z = x.Z)
                                       p = ModelParameters(fw)
                                       # Max tlvl among alive species
@@ -127,6 +138,7 @@ Arrow.write(joinpath(dir, "data/sim_extinction.arrow"), sim_extinction_df)
 sim_reintroduction = pmap(x -> merge(
                                      (sim_id = x.sim_id, fw = x.fw, Z = x.Z, nb_link = x.nb_link),
                                      (out = begin
+                                          stoch_gc(gc_prob)
                                           fw = FoodWeb(x.fw, Z = x.Z)
                                           # Remove or add link to the predator
                                           if (!ismissing(x.nb_link))

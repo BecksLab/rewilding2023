@@ -57,14 +57,9 @@ function sim_output(m; last = 100, n_digits = 7)
      connectance = connectance(A_alive),
      omnivory = omni,
      omnivory_mean = mean(omni),
-     cv_com = cv.community,
      stab_com = 1 / cv.community,
-     cv_species = cv.species,
      stab_species = 1 ./ cv.species,
-     cv_species_mean = cv.species_mean,
      stab_species_mean = 1 / cv.species_mean,
-     int_mean = mean(int[int .> 0]),
-     int_per_cap_mean = mean(int_per_capita[int_per_capita .> 0]),
     )
 end
 
