@@ -6,13 +6,18 @@ using Distributed, Serialization
 
 ncpu = length(Sys.cpu_info())
 
+first_sim = parse(Int, ARGS[1])
+last_sim = parse(Int, ARGS[2])
+
+println("Running parameters combination from $(ARGS[1]) to $(ARGS[2])")
+
 #Flag enables all the workers to start on the project of the current dir
 #dir = pwd() * "/"
 dir = expanduser("~/rewilding2023/")
 flag = "--project=" * dir
 #flag = "--project=."
 println("Workers run with flag: $(flag)")
-addprocs(20 - 1, exeflags=flag)
+addprocs(10 - 1, exeflags=flag)
 #addprocs(5, exeflags=flag)
 println("Using $(ncpu -2) cores")
 
@@ -41,7 +46,11 @@ seed!(22)
 
 # Load Foodweb
 fw_comb_df = DataFrame(Arrow.Table(joinpath(dir, "data/sim_param.arrow")))
-fw_comb_df = filter(:S => !=(60), fw_comb_df)
+
+if last_sim > size(fw_comb_df, 1)
+    last_sim = size(fw_comb_df, 1)
+end
+println("Running param sim from lines $first_sim to $last_sim")
 
 # Reshape arrays and make a vector
 fw_comb_df[!, :fw] = map(x -> reshape_array(x), fw_comb_df[:, :fw])
@@ -81,11 +90,13 @@ sim = @showprogress pmap(x -> merge(
                                      end,
                                     ).out
                                    ),
-                         fw_comb; on_error = ex -> missing,
+                         fw_comb[first_sim:last_sim]; on_error = ex -> missing,
                          batch_size = 100
                         )
+println("Finished pred present")
 sim_df = DataFrame(skipmissing(sim))
-Arrow.write(joinpath(dir, "data/sim_pred_present.arrow"), sim_df)
+file = string("data/sim_pred_present", first_sim, "_", last_sim, ".arrow")
+Arrow.write(joinpath(dir, file), sim_df)
 
 # Add check for dead species: put their biomass to 0
 # Add check for negative bm: put their biomass to 0
@@ -121,12 +132,14 @@ sim_extinction = @showprogress pmap(x -> merge(
                                   end,
                                  ).out
                                 ),
-                                    sim; on_error = ex -> missing,
+                                    skipmissing(sim); on_error = ex -> missing,
                                     batch_size = 100
                                    )
 
+println("Finished pred extinction")
 sim_extinction_df = DataFrame(skipmissing(sim_extinction))
-Arrow.write(joinpath(dir, "data/sim_extinction.arrow"), sim_extinction_df)
+file = string("data/sim_extinction", first_sim, "_", last_sim, ".arrow")
+Arrow.write(joinpath(dir, file), sim_extinction_df)
 
 # Re-introduction:
 sim_reintroduction = pmap(x -> merge(
@@ -164,13 +177,17 @@ sim_reintroduction = pmap(x -> merge(
                                       end,
                                      ).out
                                     ),
-                          sim_extinction; on_error = ex -> missing,
+                          skipmissing(sim_extinction); on_error = ex -> missing,
                           batch_size = 100
                          )
+
+println("Finished pred reintroduction")
 sim_reintroduction_df = DataFrame(skipmissing(sim_reintroduction))
-Arrow.write(joinpath(dir, "data/sim_reintroduction.arrow"), sim_reintroduction_df)
+file = string("data/sim_reintroduction", first_sim, "_", last_sim, ".arrow")
+Arrow.write(joinpath(dir, file), sim_reintroduction_df)
 
 sim_tot = [sim; sim_extinction; sim_reintroduction]
 sim_tot_df = DataFrame(skipmissing(sim_tot))
 
-Arrow.write(joinpath(dir, "data/sim_total.arrow"), sim_tot_df)
+file = string("data/sim_total", first_sim, "_", last_sim, ".arrow")
+Arrow.write(joinpath(dir, file), sim_tot_df)

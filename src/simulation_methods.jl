@@ -8,7 +8,12 @@ function sim_steady_state_last(p, B0;
         min_t_steady_state = 1000,
         gc_thre = .01,
         kwargs...)
-    stoch_gc(gc_thre)
+    if rand(Distributions.Uniform(0, 1)) < gc_thre
+        println("")
+        GC.gc()
+        ccall(:malloc_trim, Cvoid, (Cint,), 0)
+        GC.safepoint()
+    end
     # steady_sim = simulate(p, B0, callback = CallbackSet(
                                                         # TerminateSteadyState(min_t = min_t_steady_state),
                                                         # ExtinctionCallback(extinction_threshold, p, verbose)
