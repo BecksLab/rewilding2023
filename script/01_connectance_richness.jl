@@ -113,7 +113,7 @@ sim_extinction = @showprogress pmap(x -> merge(
                                       # species index in the original community
                                       extirpated_i = x.species_alive[max_tlvl_alive[2]]
                                       init_bm = sanatize_biomass(x.bm_sp, x.species_alive)
-                                      init_bm[introduced_i] = 0
+                                      init_bm[extirpated_i] = 0
                                       m = sim_steady_state_last(p, init_bm,
                                                                 last = last_timestep,
                                                                 burn_in = burn_in_timestep,
