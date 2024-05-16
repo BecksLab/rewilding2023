@@ -14,3 +14,12 @@ sim_pred_present.arrow
 sim_param.arrow
 sim_param_toy.arrow
 sim.RData
+
+sim_total10001_20000.arrow
+sim_total1_10000.arrow
+sim_total20001_30000.arrow
+sim_total30001_40000.arrow
+sim_total40001_50000.arrow
+sim_total50001_60000.arrow
+sim_total60001_69895.arrow
+

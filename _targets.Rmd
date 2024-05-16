@@ -68,7 +68,7 @@ lapply(
 
 Our first target borrows the `airquality` dataset built into base R.
 
-```{targets load-data}
+```{targets old-load-data, eval = FALSE}
 list(
   tar_target(sim_total,
     open_dataset(here("data", "sim_total.arrow"), format = "arrow") %>%
@@ -85,6 +85,29 @@ list(
   )
 )
 ```
+
+```{targets load-data}
+list(
+  tar_target(new_sim_file,
+    list.files(here("data"))[str_detect(list.files(here("data")), "sim_total\\d.*_\\d.*arrow")]
+    ),
+  tar_target(sim_total,
+    map_dfr(new_sim_file,
+      ~open_dataset(here("data", .x), format = "arrow") %>%
+        collect()
+      )),
+  tar_target(sim_param,
+    open_dataset(here("data", "sim_param.arrow"), format = "arrow") %>%
+      collect()
+    ),
+  tar_target(sim, sim_param %>%
+    select(-fw, nb_link, Z) %>%
+    left_join(sim_total) %>%
+    select(sim_id, S, C, Z, nb_link, fw, rep, everything())
+  )
+)
+```
+
 
 ## Data explanation
 
@@ -115,6 +138,29 @@ list(
   - `richness_init`, `bm_init`: initial richness and biomass
   - `tlvl_extirpated`, `tlvl_introduced`:
   - `i_extirpated`, `i_introduced`:
+
+
+
+
+```{r}
+list(
+  tar_target(failed_sim,
+    sim %>%
+      filter(is.na(scenario))
+    ),
+  tar_target(sim_rich_scenar,
+    sim %>%
+      filter(!is.na(scenario)) %>%
+      select(sim_id, scenario, richness) %>%
+      pivot_wider(names_from = scenario, values_from = richness)
+    ),
+  tar_target(imp_rich_scenar,
+    sim_rich_scenar %>%
+      filter(pred_extirpated > pred_present | pred_reintroduced > pred_present)
+  )
+)
+
+```
 
 
 # Make targets

@@ -183,7 +183,7 @@ check_bm_sp <- ti %>%
   mutate(
     bm_dead = map2(
       bm_sp, species_alive, check_bm_alive_match),
-  bm_dead1 = map_dbl(bm_dead, 1)
+    bm_dead1 = map_dbl(bm_dead, 1)
   )
 na_check_bm_sp <- check_bm_sp %>%
   filter(is.na(bm_dead))
