@@ -69,7 +69,7 @@ sim = @showprogress pmap(x -> sim_pred_present_extirpation_reintroduction(x;
                                                                           last_timestep = last_timestep,
                                                                           burn_in_timestep = burn_in_timestep,
                                                                           extinct_threshold = extinct_threshold,
-                                                                          ndigits_bm = n_digits,
+                                                                          ndigits_bm = ndigits_bm,
                                                                           gc_prob = gc_prob
                                                                          ),
                          fw_comb[first_sim:last_sim]; on_error = ex -> missing,
