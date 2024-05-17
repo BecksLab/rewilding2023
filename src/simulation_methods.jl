@@ -282,7 +282,8 @@ function sim_output(m; last = 100, n_digits = 7)
     troph_class = trophic_classes(fw)
     pref_alive = p.functional_response.ω[troph.alive_species, troph.alive_species]
     omni = omnivory(pref_alive, weighted = true)
-    cv = coefficient_of_variation(m, last = last)
+    # Compute cv only for species that are alive
+    cv = coefficient_of_variation(m, last = last, idxs = species[troph.alive_species])
     int = empirical_interaction_strength(m, p, last = last).mean
     int_per_capita = int ./ bm.species
     A_alive = troph.alive_A
