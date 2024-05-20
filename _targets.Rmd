@@ -89,7 +89,7 @@ list(
 ```{targets load-data}
 list(
   tar_target(new_sim_file,
-    list.files(here("data"))[str_detect(list.files(here("data")), "sim_total\\d.*_\\d.*arrow")]
+    list.files(here("data"))[str_detect(list.files(here("data")), "sim_\\d.*_\\d.*arrow")]
     ),
   tar_target(sim_total,
     map_dfr(new_sim_file,
@@ -142,7 +142,7 @@ list(
 
 
 
-```{r}
+```{targets check_data}
 list(
   tar_target(failed_sim,
     sim %>%
@@ -159,8 +159,38 @@ list(
       filter(pred_extirpated > pred_present | pred_reintroduced > pred_present)
   )
 )
-
 ```
+
+```{targets species-data}
+list(
+  tar_target(sim_bm_sp,
+    sim %>%
+      select(sim_id, scenario, species, bm_sp) %>%
+      mutate(
+        com = map2(species, bm_sp,
+          ~tibble(species = .x, biomass = .y)
+        )
+        ) %>%
+      select(-species, -bm_sp) %>%
+      group_by(sim_id) %>%
+      nest() %>%
+      mutate(
+        data = map(data, function(x) {
+          x %>%
+            unnest(cols = c(com)) %>%
+            pivot_wider(names_from = "species", values_from = "biomass") %>%
+            mutate(across(where(is.double), ~ifelse(is.na(.x), 0, .x))) %>%
+            pivot_longer(where(is.double), names_to = "species", values_to = "biomass")
+        })
+        ) %>%
+      unnest(cols = c(data))
+
+    )
+
+
+)
+```
+
 
 
 # Make targets
@@ -198,6 +228,112 @@ lapply(
   ),
   FUN = source)
 ```
+
+```{r}
+tar_load(sim_bm_sp)
+library(targets)
+tar_load_globals()
+tar_load(sim)
+sim %>%
+  select(sim_id, species, species_alive, bm_sp, stab_species)
+
+sim_species_stab <- sim %>%
+  filter(sim_id %in% c(10000, 41000, 65000)) %>%
+  select(sim_id, scenario, species, stab_species) %>%
+  mutate(
+    com = map2(species_alive, stab_species,
+      ~tibble(species = .x, stability = .y)
+    )
+    ) %>%
+  select(-species_alive, -stab_species) %>%
+  group_by(sim_id) %>%
+  nest() %>%
+  mutate(
+    data = map(data, function(x) {
+      x %>%
+        unnest(cols = c(com)) %>%
+        pivot_wider(names_from = "species", values_from = "stability") %>%
+        mutate(across(where(is.double), ~ifelse(is.na(.x), 0, .x))) %>%
+        pivot_longer(where(is.double), names_to = "species", values_to = "stability")
+    })
+    ) %>%
+  unnest(cols = c(data))
+
+ti <- sim %>%
+  filter(sim_id == 1) %>%
+  select(sim_id, scenario, species, species_alive, bm_sp, stab_species)
+ti$species
+ti$bm_sp
+ti %<>%
+  mutate(
+    com = map2(ti$species, ti$bm_sp,
+      ~tibble(species = .x, biomass = .y)
+    )
+  )
+ti %>%
+  select(sim_id, scenario, com) %>%
+  unnest(cols = c(com)) %>%
+  pivot_wider(names_from = "species", values_from = "biomass") %>%
+  mutate(across(where(is.double), ~ifelse(is.na(.x), 0, .x))) %>%
+  pivot_longer(where(is.double), names_to = "species", values_to = "biomass")
+to <- sim %>%
+  select(sim_id, scenario, species, bm_sp) %>%
+  mutate(
+    com = map2(species, bm_sp,
+      ~tibble(species = .x, biomass = .y)
+    )
+  ) %>%
+  select(-species, -bm_sp) %>%
+  group_by(sim_id) %>%
+  nest() %>%
+  mutate(
+    data = map(data, function(x) {
+      x %>%
+        unnest(cols = c(com)) %>%
+        pivot_wider(names_from = "species", values_from = "biomass") %>%
+        mutate(across(where(is.double), ~ifelse(is.na(.x), 0, .x))) %>%
+        pivot_longer(where(is.double), names_to = "species", values_to = "biomass")
+    })
+  ) %>%
+  unnest(cols = c(data))
+
+tu <- to %>%
+  filter(sim_id %in% c(10000, 41000, 65000)) %>%
+  select(sim_id, scenario, com) %>%
+  group_by(sim_id)
+# Nest, do the pivoting and unnest
+tu2 <- tu %>%
+  nest() %>%
+  mutate(
+    data = map(data, function(x) {
+      x %>%
+        unnest(cols = c(com)) %>%
+        pivot_wider(names_from = "species", values_from = "biomass") %>%
+        mutate(across(where(is.double), ~ifelse(is.na(.x), 0, .x))) %>%
+        pivot_longer(where(is.double), names_to = "species", values_to = "biomass")
+    })
+  )
+  tu2
+  tu2 <- tu %>%
+  nest()
+tu2$data[[1]]
+tu2 %<>%
+  unnest(cols = c(data))
+unique(tu2[tu2$sim_id == 10000, ]$species)
+unique(tu2[tu2$sim_id == 41000, ]$species)
+unique(tu2[tu2$sim_id == 65000, ]$species)
+
+to <- sim %>%
+  filter(sim_id %in% c(10000, 40000, 65000)) %>%
+  select(sim_id, scenario, species, bm_sp) %>%
+  mutate(
+    com = map2(species, bm_sp,
+      ~tibble(species = .x, biomass = .y)
+    )
+  )
+
+```
+
 
 ```{r}
 tar_load(sim_param)
