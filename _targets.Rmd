@@ -248,15 +248,13 @@ list(
     ),
   tar_target(sim_pred_link,
     sim_total %>%
-      filter(scenario != "pred_present") %>%
-      select(sim_id, scenario, nb_link_extirpated, nb_link_introduced) %>%
+      filter(scenario != "pred_extirpated") %>%
+      left_join(pred_sim_id) %>%
       mutate(
-        nb_link_target_pred = map2_int(
-          nb_link_extirpated,
-          nb_link_introduced,
-          ~unique(na.omit(c(.x, .y)))
-        )
-        ) %>%
+        fw_mat = map(fw, ~matrix(.x, nrow = sqrt(length(.x)))),
+        id_target_pred = map2_int(species, target_pred, ~which(.x == .y)),
+        nb_link_target_pred = map2_int(fw_mat, id_target_pred, ~sum(.x[.y,]))
+      ) %>%
       select(sim_id, scenario, nb_link_target_pred) %>%
       pivot_wider(
         names_from = "scenario",
@@ -288,7 +286,7 @@ list(
         realised_S_3 = richness_wo_pred_reintroduced,
         #z_1 (ppmr in the intact community)
         #g_1 (number of links between the top/removed predator and other species)
-        g_1 = nb_link_target_pred_extirpated,
+        g_1 = nb_link_target_pred_present,
         #g_3 (number of remaining links between the top/removed predator and other species i.e. does the predator still have all its prey alive)
         g_3 = nb_link_target_pred_reintroduced,
         #cv_com_1 (community stability in the intact phase)
@@ -312,7 +310,7 @@ list(
         #delta_cvc_32 (community stability in the reintroduced stage/community stability in the extirpated stage)
         delta_stabc_32 = stab_com_reintroduced / stab_com_extirpated,
         #delta_g_31 (g_3/g_1)
-        delta_g_31 = nb_link_target_pred_reintroduced / nb_link_target_pred_extirpated,
+        delta_g_31 = nb_link_target_pred_reintroduced / nb_link_target_pred_present,
         #delta_sp_32 (predator survives reintroduction)
         delta_sp_32  = pred_survive_reintro,
         #delta_bmp_31 (predator biomass in the reintroduced stage/predator biomass in the intact stage)
@@ -503,28 +501,33 @@ to <- sim %>%
   )
 ```
 
-
-
 ```{r}
+tar_load(sim_tom_ok)
+summary(sim_tom_ok)
+```
+
+
+
+```{r, eval = FALSE}
 tar_load(sim_total)
 sim_toy <- sim_total %>%
-  filter(sim_id %in% c(1:3))
+  filter(sim_id %in% c(1:5))
 sim_toy$species_extirpated
 sim_toy$species_introduced
-
-sim_com_output <- sim_toy %>%
-  select(sim_id, scenario, connectance, stab_com, bm_total, tlvl_w_mean) %>%
-  mutate(scenario = str_remove(scenario, "pred_")) %>%
-  pivot_wider(
-    names_from = scenario,
-    names_glue = "{.value}_{scenario}",
-    values_from = c(connectance, stab_com, bm_total, tlvl_w_mean)
-    )
 
 pred_sim_id <- sim_toy %>%
   group_by(sim_id) %>%
   summarise(target_pred = unique(na.omit(c(species_extirpated, species_introduced))))
 
+nb_link <- sim_toy %>%
+  filter(scenario != "pred_extirpated") %>%
+  left_join(pred_sim_id) %>%
+  mutate(
+    fw_mat = map(fw, ~matrix(.x, nrow = sqrt(length(.x)))),
+    id_target_pred = map2_int(species, target_pred, ~which(.x == .y)),
+    nb_link_pred = map2_int(fw_mat, id_target_pred, ~sum(.x[.y,]))
+  ) %>%
+  select(sim_id, scenario, nb_link_pred, nb_link_extirpated, nb_link_introduced)
 
 richness_wo_pred <- sim_toy %>%
   left_join(pred_sim_id) %>%
@@ -605,6 +608,12 @@ sim_pred_link <- sim_toy %>%
     values_from = "nb_link_target_pred"
     ) %>%
   rename_with(~str_replace(.x, "pred_", "nb_link_target_pred_"))
+
+sim_toy <- sim_total %>%
+  filter(sim_id %in% c(65000:65005))
+pred_sim_id <- sim_toy %>%
+  group_by(sim_id) %>%
+  summarise(target_pred = unique(na.omit(c(species_extirpated, species_introduced))))
 
 sim_summary <- sim_com_output %>%
   left_join(sim_pred_link) %>%
