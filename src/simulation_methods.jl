@@ -97,11 +97,14 @@ function sim_pred_present_extirpation_reintroduction(
                                    tlvl_extirpated = missing,
                                    species_introduced = missing,
                                    tlvl_introduced = missing,
+                                   species_disconnected_cons = missing,
                                    n_digits = ndigits_bm
                                   )
 
-    extirpated = sim_predator_extirpation(p, pred_present.species_alive,
-                                          pred_present.bm_sp, pred_present.tlvl;
+    extirpated = sim_predator_extirpation(p,
+                                          pred_present.species_alive,
+                                          pred_present.bm_sp,
+                                          pred_present.tlvl;
                                           last_timestep = last_timestep,
                                           burn_in_timestep = burn_in_timestep,
                                           extinct_threshold = extinct_threshold,
@@ -150,6 +153,24 @@ function sim_predator_reintroduction(p,
     else
         f = p.network.A
     end
+    nb_link_introduced = sum(f[species_idxs[extirpated_species], :])
+    tlvl_introduced = trophic_levels(f)[species_idxs[extirpated_species]]
+
+    # Remove disconnected consumer bc there are automatically transformed into producers
+    # by FoodWeb
+    ## retrieve disconnected_species
+    disconnected_cons_species = retrieve_disconnected_consumers(
+                                                                f[idxs_to_keep, idxs_to_keep],
+                                                                p.network.metabolic_class[idxs_to_keep],
+                                                                species_to_keep)
+    ## update species to keep
+    if length(disconnected_cons_species) !== 0
+        species_to_keep = species_to_keep[[all(i .!==  disconnected_cons_species) for i in species_to_keep]]
+        idxs_to_keep = [species_idxs[i] for i in species_to_keep]
+    else
+        disconnected_cons_species = missing
+    end
+
     fw = FoodWeb(f[idxs_to_keep, idxs_to_keep],
                  M = p.network.M[idxs_to_keep],
                  species = species_to_keep,
@@ -160,7 +181,6 @@ function sim_predator_reintroduction(p,
     bm_species_dict = Dict(zip(species, bm_species))
     reordered_bm_species = [bm_species_dict[i] for i in alive]
     init_bm = [reordered_bm_species; mean(values(reordered_bm_species))]
-    #@infiltrate
     m = sim_steady_state_last(p, init_bm,
                               last = last_timestep,
                               burn_in = burn_in_timestep,
@@ -172,8 +192,11 @@ function sim_predator_reintroduction(p,
                     scenario = "pred_reintroduced",
                     species_extirpated = missing,
                     tlvl_extirpated = missing,
+                    nb_link_extirpated = missing,
                     species_introduced = extirpated_species,
-                    tlvl_introduced = missing,
+                    tlvl_introduced = tlvl_introduced,
+                    nb_link_introduced = nb_link_introduced,
+                    species_disconnected_cons = disconnected_cons_species,
                     n_digits = ndigits_bm
                    )
 end
@@ -200,10 +223,29 @@ function sim_predator_extirpation(p, alive_species, bm_species, tlvl;
     # Species to extirpate
     extirpated_tl = max_tlvl_alive[1]
     extirpated_species = alive[max_tlvl_alive[2]]
+    ## Nb link of the extirpated species
+    alive_tmp_A = p.network.A[alive_idxs, alive_idxs]
+    nb_link_extirpated = sum(alive_tmp_A[max_tlvl_alive[2], :])
 
     # Species to keep for the simulation (alive minus extirpated):
     species_to_keep = alive[alive .!== extirpated_species]
     idxs_to_keep = [species_idxs[i] for i in species_to_keep]
+
+    # Remove disconnected consumer bc there are automatically transformed into producers
+    # by FoodWeb
+    ## retrieve disconnected_species
+    disconnected_cons_species = retrieve_disconnected_consumers(
+                                                                p.network.A[idxs_to_keep, idxs_to_keep],
+                                                                p.network.metabolic_class[idxs_to_keep],
+                                                                species_to_keep)
+    ## update species to keep
+    if length(disconnected_cons_species) !== 0
+        species_to_keep = species_to_keep[[all(i .!==  disconnected_cons_species) for i in species_to_keep]]
+        idxs_to_keep = [species_idxs[i] for i in species_to_keep]
+    else
+        disconnected_cons_species = missing
+    end
+
 
     # Simulation preparation
     ## Build the new FW
@@ -228,8 +270,11 @@ function sim_predator_extirpation(p, alive_species, bm_species, tlvl;
                     scenario = "pred_extirpated",
                     species_extirpated = extirpated_species,
                     tlvl_extirpated = extirpated_tl,
+                    nb_link_extirpated = nb_link_extirpated,
                     species_introduced = missing,
                     tlvl_introduced = missing,
+                    nb_link_introduced = missing,
+                    species_disconnected_cons = disconnected_cons_species,
                     n_digits = ndigits_bm
                    )
 
@@ -282,7 +327,8 @@ function sim_output(m; last = 100, n_digits = 7)
     troph_class = trophic_classes(fw)
     pref_alive = p.functional_response.ω[troph.alive_species, troph.alive_species]
     omni = omnivory(pref_alive, weighted = true)
-    cv = coefficient_of_variation(m, last = last)
+    # Compute cv only for species that are alive
+    cv = coefficient_of_variation(m, last = last, idxs = species[troph.alive_species])
     int = empirical_interaction_strength(m, p, last = last).mean
     int_per_capita = int ./ bm.species
     A_alive = troph.alive_A
@@ -316,8 +362,11 @@ function scenario_output(m, B0, fw;
         scenario = "pred_present",
         species_extirpated = missing,
         tlvl_extirpated = missing,
+        nb_link_extirpated = missing,
         species_introduced = missing,
         tlvl_introduced = missing,
+        nb_link_introduced = missing,
+        species_disconnected_cons = missing,
         kwargs...
     )
 
@@ -332,9 +381,12 @@ function scenario_output(m, B0, fw;
            bm_init_cons = sum(B0[troph_class_init.intermediate_consumers]),
            bm_init_prod = sum(B0[troph_class_init.producers]),
            tlvl_extirpated = tlvl_extirpated,
+           nb_link_extirpated = nb_link_extirpated,
            species_extirpated = species_extirpated,
            species_introduced = species_introduced,
-           tlvl_introduced = tlvl_introduced
+           tlvl_introduced = tlvl_introduced,
+           nb_link_introduced = nb_link_introduced,
+           species_disconnected_cons = species_disconnected_cons
           )
    )
 end
@@ -355,3 +407,52 @@ function sanatize_biomass(bm, alive)
     bm[mask_no_alive] .= 0
     bm
 end
+
+"""
+retrieve_disconnected_consumers(A, metabolic_class, species)
+
+Compare metabolic classes to the adjacency matrix to retrieve disconnected consumers
+
+# Examples
+
+A = [0 0 0; 0 0 1; 0 0 0]
+metabolic_class = ["producer", "invertebrate", "invertebrate"]
+species = ["carrot", "rabbit", "bird"]
+disconnected_cons_species = retrieve_disconnected_consumers(A, metabolic_class, species)
+disconnected_cons_species == ["bird", "rabbit"]
+species_to_keep = species[[all(i .!==  disconnected_cons_species) for i in species]]
+species_to_keep == ["carrot"]
+
+A = [0 0 0; 0 0 1; 0 0 1]
+disconnected_cons_species = retrieve_disconnected_consumers(A, metabolic_class, species)
+disconnected_cons_species == []
+species_to_keep = species[[all(i .!==  disconnected_cons_species) for i in species]]
+species_to_keep == species
+
+# Where carrot and bird are first removed and then rabbit because no prey anymore
+A = [0 0 0; 0 0 1; 0 0 0]
+metabolic_class = ["invertebrate", "invertebrate", "invertebrate"]
+species = ["carrot", "rabbit", "bird"]
+disconnected_cons_species = retrieve_disconnected_consumers(A, metabolic_class, species)
+sort(disconnected_cons_species) == sort(species)
+
+"""
+function retrieve_disconnected_consumers(A, metabolic_class, species)
+    A = deepcopy(A)
+    are_there_disconnected = true
+    out = []
+    while are_there_disconnected
+        idxs = collect(1:richness(A))
+        prod_idxs = producers(A)
+        disconnected_cons_idxs = idxs[[i ∈  prod_idxs && metabolic_class[i] == "invertebrate" for i in idxs]]
+        disconnected_cons_species = species[disconnected_cons_idxs]
+        are_there_disconnected = length(disconnected_cons_species) > 0
+        idxs_to_keep = [i ∉ disconnected_cons_idxs for i in 1:richness(A)]
+        A = A[idxs_to_keep, idxs_to_keep]
+        species = species[idxs_to_keep]
+        metabolic_class = metabolic_class[idxs_to_keep]
+        append!(out, disconnected_cons_species)
+    end
+    out
+end
+
