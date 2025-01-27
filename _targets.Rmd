@@ -111,7 +111,7 @@ list(
 ```
 
 
-## Data explanation
+## Raw simulation data explanation
 
 - Every food-web (`fw_id`) was ran according to three sequential `scenario`:
   - `pred_present`: The predator is present
@@ -121,7 +121,7 @@ list(
 - We collected a bunch of metrics for each simulation:
   - `fw_id`
   - `scenario`
-  - `richness`,  `persistence`
+  - `richness`, `persistence`
   - `bm_sp`: vector of species biomass
   - `bm_total`
   - `bm_pred`, `bm_cons`, `bm_prod`: predator, consumer, and primary producer
@@ -324,6 +324,9 @@ list(
   sim_param %>%
     select(sim_id, Z, nb_link, rep) %>%
     left_join(sim_tom)
+  ),
+  tar_target(sim_tom_ok_export,
+    save(sim_tom_ok, file = "sim_tom_ok.Rdata")
   )
 )
 ```
@@ -382,6 +385,7 @@ At this point, you can go back and run `{targets}` chunks in interactive mode wi
 # Output
 
 ```{r load-fun}
+library(targets)
 sapply(pkg, require, character.only = TRUE)
 
 dir_fun <- here::here("R")
@@ -396,9 +400,62 @@ lapply(
   FUN = source)
 ```
 
+## Pre-processed simulation data
+
 ```{r}
+tar_load(sim_tom_ok)
+#summary(sim_tom_ok)
+```
+
+### Variable explanation
+
+Here is the explanation of each variable in the dataset (`sim_tom_ok.Rdata`)
+pre-processed for statistical analysis:
+
+- Simulation parameters:
+  - `sim_id`: ID of the simulation
+  - `Z`: Predator-prey Mass Ratio (see Brose et al. (2006))
+  - `nb_link`: Fixed number of trophic links of the reintroduced predator. If
+    `NA`, it means that we did not change the number of trophic links of the
+    reintroduced predator
+  - `rep`: ID of the simulation replicate
+- Output metrics:
+  - `realised_C_1`: connectance in the intact community
+  - `realised_C_2`: connectance in the extirpated community
+  - `realised_C_3`: connectance in the reintroduced community
+  - `realised_S_1`: richness in the intact community, excluding the predator
+  - `realised_S_2`: richness in the extirpated community, excluding the predator obvs
+  - `realised_S_3`: richness in the reintroduced community, excluding the predator
+  - `z_1`: ppmr in the intact community
+  - `g_1`: number of trophic links of the top/removed predator in the intact
+    community
+  - `g_3`: number of trophic links of the top/removed predator in the reintroduced
+    phase
+  - `stab_com_1`: community stability in the intact phase
+  - `stab_com_2`: community stability in the extirpated phase
+  - `tlvl_mean_1`: mean trophic level in the intact phase
+  - `tlvl_mean_2`: mean trophic level in the exirpated phase
+  - `delta_s_21`: `realised_S_2`/`realised_S_1`,
+  - `delta_s_32`: `realised_S_3`/`realised_S_2`,
+  - `delta_bmc_21`: community biomass in the extirpated stage/community biomass
+    in the intact stage,
+  - `delta_bmc_32`: community biomass in the reintroduced stage/community
+    biomass in the extirpated stage
+  - `delta_stabc_21`: community stability in the extirpated stage/community
+    stability in the intact stage
+  - `delta_stabc_32`: community stability in the reintroduced stage/community
+    stability in the extirpated stage
+  - `delta_g_31`: `g_3`/`g_1`
+  - `delta_sp_32`: predator survives reintroduction
+  - `delta_bmp_31`: predator biomass in the reintroduced stage/predator biomass
+    in the intact stage
+  - `delta_stabp_31`: predator population stability in the reintroduced
+     / intact stages
+
+
+```{r draft-check, eval = FALSE}
+load("~/Downloads/sim_tom_ok")
 tar_load(sim_bm_sp)
-library(targets)
 tar_load_globals()
 tar_load(sim)
 tar_load(sim_param)
@@ -501,11 +558,12 @@ to <- sim %>%
   )
 ```
 
-```{r}
-tar_load(sim_tom_ok)
-summary(sim_tom_ok)
-```
 
+
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(eval = FALSE, include = FALSE, comment = "#>")
+```
 
 
 ```{r, eval = FALSE}
@@ -670,6 +728,7 @@ sim_tom <- sim_summary %>%
     delta_cvp_31 = stab_target_pred_reintroduced / stab_target_pred_present
   )
 ```
+
 
 
 
@@ -867,4 +926,5 @@ ggsave(
   units = "mm"
 )
 ```
+
 
