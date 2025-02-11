@@ -174,12 +174,16 @@ list(
       ),
   tar_target(sim_com_output,
     sim_total %>%
-      select(sim_id, scenario, connectance, stab_com, bm_total, tlvl_w_mean) %>%
+      mutate(
+        bm_evenness = map_dbl(bm_sp,
+          ~vegan::diversity(.x, index = "shannon")/length(.x)),
+      ) %>%
+      select(sim_id, scenario, connectance, stab_com, bm_total, tlvl_w_mean, bm_evenness) %>%
       mutate(scenario = str_remove(scenario, "pred_")) %>%
       pivot_wider(
         names_from = scenario,
         names_glue = "{.value}_{scenario}",
-        values_from = c(connectance, stab_com, bm_total, tlvl_w_mean)
+        values_from = c(connectance, stab_com, bm_total, tlvl_w_mean, bm_evenness)
       )
     ),
   tar_target(richness_wo_pred,
@@ -297,6 +301,18 @@ list(
         tlvl_mean_1 = tlvl_w_mean_present,
         #tlvl_mean_2 (mean trophic level in the exirpated phase)
         tlvl_mean_2 = tlvl_w_mean_extirpated,
+        # evenness 1 (evenness in the intact community),
+        evenness_1 = bm_evenness_present,
+        # evenness 2 (evenness in the exirpated phase),
+        evenness_2 = bm_evenness_extirpated,
+        # evenness 3 (evenness in the reintroduced community),
+        evenness_3 = bm_evenness_reintroduced,
+        #delta_ev_21 = (evenness in the extirpated stage / evenness in the intact stage),
+        delta_ev_21 = evenness_2/evenness_1,
+        #delta_ev_31 = (evenness in the reintroduced stage / evenness in the intact stage),
+        delta_ev_31 = evenness_3/evenness_1,
+        #delta_ev_32 = (evenness in the reintroduced stage/evenness in the extirpated stage),
+        delta_ev_32 = evenness_3/evenness_2,
         #delta_s_21 = (realised_S_2/realised_S_1),
         delta_s_21 = richness_wo_pred_extirpated / richness_wo_pred_present,
         #delta_s_32 = (realised_S_3/realised_S_2),
@@ -427,10 +443,10 @@ pre-processed for statistical analysis:
   - `realised_S_2`: richness in the extirpated community, excluding the predator obvs
   - `realised_S_3`: richness in the reintroduced community, excluding the predator
   - `z_1`: ppmr in the intact community
-  - `g_1`: number of trophic links of the top/removed predator in the intact
-    community
-  - `g_3`: number of trophic links of the top/removed predator in the reintroduced
-    phase
+  - `g_1`: number of trophic links of the predator in the intact
+    community (at the begining of the simulation)
+  - `g_3`: number of trophic links of the predator in the reintroduced
+    phase (at the begining of the simulation)
   - `stab_com_1`: community stability in the intact phase
   - `stab_com_2`: community stability in the extirpated phase
   - `tlvl_mean_1`: mean trophic level in the intact phase
