@@ -377,6 +377,37 @@ list(
 )
 ```
 
+```{targets correlation-plot}
+list(
+  tar_target(tmp_data4cor,
+    sim_tom_ok %>%
+      filter(is.na(nb_link)) %>%
+      select(-sim_id, -rep, -nb_link) %>%
+      na.omit()
+    ),
+  tar_target(M,
+    cor(
+      tmp_data4cor[is.finite(rowSums(tmp_data4cor)), ],
+      use = "complete.obs",
+      method = "spearman"
+      )),
+  tar_target(p_cor, ggcorrplot(M, type = "lower", lab = TRUE)),
+  tar_target(p_cor_file,
+    ggsave(
+      filename = "p_cor.pdf",
+      plot = p_cor,
+      device = NULL,
+      path = here("report", "figs"),
+      scale = 2.6,
+      width = 120,
+      height = 120 * .9,
+      units = "mm",
+      dpi = 300
+    )
+  )
+)
+```
+
 
 
 # Make targets
@@ -573,6 +604,26 @@ to <- sim %>%
     )
   )
 ```
+
+```{r}
+library(ade4)
+library(adegraphics)
+sim_tom_ok
+primary_com_var <- c("sim_id", "delta_stabc_21", "realised_S_1", "realised_C_1", "g_1", "tlvl_mean_1", "evenness_1", "Z")
+tmp <- as.data.frame(sim_tom_ok[, colnames(sim_tom_ok) %in% primary_com_var]) %>%
+  column_to_rownames(var = "sim_id")
+
+pca <- compute_rotated_pca(
+  .data = tmp,
+  naxis = 2
+)
+s.corcircle(pca$normal$co)
+plot_rotated_pca(pca_rotated = pca, axis = c(1, 2))
+my_pca_plot(pca$rotated)
+plot_pca_clust(pca$rotated)
+```
+
+
 
 
 
